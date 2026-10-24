@@ -37,6 +37,10 @@ CONFIGS["neg:sasrec-S512-H16"] = ["--arch", "sasrec", "--pos", "abs", "--trel", 
                                   "--n-shared", "512", "--n-hard", "16"]
 
 MAIN = [c for c in CONFIGS if not c.startswith("neg:")]
+# CPU budget (box load ~35 on 8 cores, ~2 h per ML-1M run): 3 seeds for the core configs, 2 for the rest of
+# the main grid, 1 seed for the negatives heatmap.
+CORE = ["sasrec", "hstu-notime", "hstu-trel", "hstu-trel+trope", "hstu-full"]
+SECONDARY = [c for c in MAIN if c not in CORE]
 # Amazon (10k-user subsample, L=50): the architecture x time core only (CPU budget)
 AMAZON = ["sasrec", "hstu-notime", "hstu-trel", "hstu-trel+trope", "hstu-full"]
 

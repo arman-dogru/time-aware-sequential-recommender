@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
-# Full experiment schedule (resumable; finished runs are skipped). Run under nohup.
+# Full experiment schedule (resumable; finished or in-flight runs are skipped). Run under nohup.
+#   ML-1M: CORE x seeds 0-2, SECONDARY x seeds 0-1, negatives heatmap x seed 0   (ML_JOBS parallel)
+#   Amazon'23 Industrial_and_Scientific, 10k-user subsample: AMAZON x seeds 0-2   (AMZ_JOBS parallel)
 set -u
 cd "$(dirname "$0")/.."
 PY=${PY:-../tasr-venv/bin/python}
-MAIN=$(PYTHONPATH=. $PY -c "from tasr.configs import MAIN; print(' '.join(MAIN))")
-AMZ=$(PYTHONPATH=. $PY -c "from tasr.configs import AMAZON; print(' '.join(AMAZON))")
-NEG=$(PYTHONPATH=. $PY -c "from tasr.configs import CONFIGS; print(' '.join(c for c in CONFIGS if c.startswith('neg:')))")
+cfg() { PYTHONPATH=. $PY -c "import tasr.configs as c; print(' '.join($1))"; }
 ml() { DATA=data/processed/ml1m.npz MAXLEN=100 "$@"; }
-amz() { DATA=data/processed/amz_Industrial_and_Scientific.npz MAXLEN=50 "$@"; }
-# ML-1M: main grid x 3 seeds, then the negative-sampling heatmap (seed 0), then 3 seeds for the planned neg comparisons
-( ONLY="$MAIN" SEEDS="0 1 2" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh
-  ONLY="$NEG" SEEDS="0" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh
-  ONLY="neg:S512-H16 neg:S512-H0 neg:S512-H16-nopa" SEEDS="1 2" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh ) &
-# Amazon Industrial_and_Scientific: subset x 3 seeds
-( while [[ ! -f data/processed/amz_Industrial_and_Scientific_incr_flags.npz ]]; do sleep 60; done
-  ONLY="$AMZ" SEEDS="0 1 2" JOBS=${AMZ_JOBS:-2} amz scripts/run_grid.sh ) &
+amz() { DATA=data/processed/amz_Industrial_and_Scientific_u10k.npz MAXLEN=50 "$@"; }
+( ONLY="$(cfg c.CORE)" SEEDS="0 1 2" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh
+  ONLY="$(cfg c.SECONDARY)" SEEDS="0 1" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh
+  ONLY="$(cfg "[k for k in c.CONFIGS if k.startswith('neg:')]")" SEEDS="0" JOBS=${ML_JOBS:-4} ml scripts/run_grid.sh ) &
+( ONLY="$(cfg c.AMAZON)" SEEDS="0 1 2" JOBS=${AMZ_JOBS:-2} amz scripts/run_grid.sh ) &
 wait
 echo "$(date '+%F %T') ALL DONE" >> logs/grid.log
