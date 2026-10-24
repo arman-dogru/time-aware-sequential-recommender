@@ -165,7 +165,7 @@ if os.path.exists("results/bench.json"):
     models = sorted({r["model"] for r in b["inference"]}, key=lambda m: list(dict.fromkeys(r["model"] for r in b["inference"])).index(m))
     for ax, bs in zip(axes[:2], (1, 256)):
         for mname in models:
-            for th, ls in ((1, "--"), (4, "-")):
+            for th, ls in ((1, "--"), (2, "-")):
                 rows = sorted([r for r in b["inference"] if r["model"] == mname and r["batch"] == bs and r["threads"] == th], key=lambda r: r["L"])
                 ax.plot([r["L"] for r in rows], [r["median_ms"] for r in rows], ls, marker="o", label=f"{mname} t={th}")
         knn = [r for r in b["itemknn"] if r["batch"] == bs]

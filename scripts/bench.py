@@ -36,7 +36,7 @@ def timeit(fn, reps):
 res = {"host": platform.processor() or platform.machine(), "cpus": os.cpu_count(), "torch": torch.__version__,
        "loadavg_start": os.getloadavg(), "inference": [], "train": [], "itemknn": []}
 users = np.arange(256)
-for threads in (1, 4):
+for threads in (1, 2):
     torch.set_num_threads(threads)
     for L in (50, 100, 200):
         data.max_len = L
