@@ -108,6 +108,9 @@ class SeqRec(nn.Module):
             self.cal_in = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(48, d)])
             self.cal_q = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(48, d)])
         self.blocks = nn.ModuleList(Block(arch, d, heads, L, dropout, pos, trel, trope) for _ in range(layers))
+        for m in self.modules():  # small init for every embedding (default N(0,1) would swamp item embeddings)
+            if isinstance(m, nn.Embedding) and m is not self.emb:
+                nn.init.normal_(m.weight, std=0.02)
         self.ln_f = nn.LayerNorm(d)
         self.drop = nn.Dropout(dropout)
         self.trel = trel
