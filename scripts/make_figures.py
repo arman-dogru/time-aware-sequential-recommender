@@ -195,10 +195,10 @@ if QT:
         ax.bar(x + 0.2, b, 0.4, label="query time = last history timestamp")
         for xi, c in zip(x, names):
             e = q["configs"][c]
-            ax.text(xi, max(a[list(names).index(c)], b[list(names).index(c)]) + 0.3,
+            ax.text(xi, max(a[list(names).index(c)], b[list(names).index(c)]) * 1.02,
                     f"{100 * e['diff']:+.1f}\n[{100 * e['lo']:+.1f},{100 * e['hi']:+.1f}]", ha="center", fontsize=6)
         ax.set_xticks(x, [f"{c}\n(n={len(q['configs'][c]['seeds'])})" for c in names], rotation=35, ha="right", fontsize=7)
         ax.set_ylabel("test Recall@10 (%)"); ax.set_title(f"{DS[ds]}: eval-only query-time ablation (diff pp, 95% CI)", fontsize=9)
-        ax.legend(fontsize=7)
+        ax.set_ylim(0, max(a + b) * 1.25); ax.legend(fontsize=7, loc="upper left", ncol=2)
     fig.tight_layout(); fig.savefig(f"{FIG}/query_time_ablation.png", dpi=110); plt.close(fig)
     print("query_time_ablation.png")

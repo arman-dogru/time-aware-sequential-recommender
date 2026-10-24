@@ -16,6 +16,9 @@ Results carry 95% CIs over users × seeds, with Holm-corrected paired tests.
    - On ML-1M, this reveals that 74% of test targets come less than a minute after the last history event, inside the same rating session.
    - A model that sees "a few seconds have passed" can lean on the session structure.
    - The eval-only ablation in [`results/*/query_time_ablation.json`](results/ml1m/query_time_ablation.json) ([`scripts/eval_query_time.py`](scripts/eval_query_time.py)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp instead. In that setting the model cannot know how long ago the user acted. See the query-time figure below.
+   - **Interim result (seed-0 checkpoints, ML-1M):** hstu-trel falls from 32.86 to 30.03 Recall@10 (−2.83 pp [−3.48, −2.15]). That is back to the level of hstu-notime (30.15). sasrec+trel falls by 2.07 pp [−2.78, −1.34]. **The ML-1M time gain therefore comes from knowing the request time relative to the last event, not from the history's timestamps.**
+   - On Amazon, the change is ≤ 0.1 pp.
+   - These numbers are refreshed by `scripts/finalize.sh` over all seeds.
 1. **Time in attention helps on ML-1M, but by modelling rating sessions.**
    - On ML-1M, the relative time bias (`trel`) adds a few points of Recall@10 on both backbones, HSTU and SASRec.
    - The recall-by-gap figure shows that the gain is concentrated where the target follows the last event within a minute. That is the ML-1M rating-burst artefact, not long-horizon seasonality.
