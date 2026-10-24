@@ -37,7 +37,8 @@ CONFIGS["neg:sasrec-S512-H16"] = ["--arch", "sasrec", "--pos", "abs", "--trel", 
                                   "--n-shared", "512", "--n-hard", "16"]
 
 MAIN = [c for c in CONFIGS if not c.startswith("neg:")]
-AMAZON = ["sasrec", "hstu-notime", "hstu-trel", "hstu-trel+trope", "hstu-full", "hstu-tt:incr1"]
+# Amazon (10k-user subsample, L=50): the architecture x time core only (CPU budget)
+AMAZON = ["sasrec", "hstu-notime", "hstu-trel", "hstu-trel+trope", "hstu-full"]
 
 # planned pairwise comparisons (a, b): effect = a - b. Holm-corrected as one family per metric.
 COMPARISONS = [

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tasr.configs import MAIN
 from tasr.models import N_TBUCKETS
 
-DS = {"ml1m": "MovieLens-1M", "amz_Industrial_and_Scientific": "Amazon'23 Industrial & Scientific"}
+DS = {"ml1m": "MovieLens-1M", "amz_Industrial_and_Scientific_u10k": "Amazon'23 Industrial & Scientific (10k users)"}
 FIG = "docs/figures"; os.makedirs(FIG, exist_ok=True)
 BASE = ["Pop", "RecentPop", "ItemKNN", "Ensemble-RRF"]
 rng = np.random.default_rng(7)

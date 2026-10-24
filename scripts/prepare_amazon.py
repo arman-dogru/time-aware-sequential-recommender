@@ -7,6 +7,8 @@ dataset card https://amazon-reviews-2023.github.io/ , files on the Hugging Face 
 https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/tree/main/benchmark/5core/rating_only
 Default category: Industrial_and_Scientific (5-core: 50,985 users, 25,848 items, 412,947 reviews).
 A review is used as a proxy for a purchase event; timestamps are in ms and converted to seconds.
+The CPU budget run uses a uniform 10k-user subsample (--max-users 10000, seed 0); items are
+re-indexed over the subsample, so the catalog is every item any sampled user touched.
 Raw data is not committed.
 """
 import argparse, csv, hashlib, os, sys, urllib.request
@@ -19,8 +21,10 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--category", default="Industrial_and_Scientific")
 ap.add_argument("--raw-dir", default="data/raw")
 ap.add_argument("--out", default=None)
+ap.add_argument("--max-users", type=int, default=0, help="uniform random user subsample (seed 0); 0 = all")
 a = ap.parse_args()
-out = a.out or f"data/processed/amz_{a.category}.npz"
+suffix = f"_u{a.max_users // 1000}k" if a.max_users else ""
+out = a.out or f"data/processed/amz_{a.category}{suffix}.npz"
 os.makedirs(a.raw_dir, exist_ok=True); os.makedirs(os.path.dirname(out), exist_ok=True)
 path = os.path.join(a.raw_dir, f"{a.category}.csv")
 if not os.path.exists(path):
@@ -33,6 +37,11 @@ U, I, T = [], [], []
 for r in csv.DictReader(open(path)):
     U.append(r["user_id"]); I.append(r["parent_asin"]); T.append(int(r["timestamp"]) // 1000)
 uid = {u: k for k, u in enumerate(sorted(set(U)))}
+if a.max_users and a.max_users < len(uid):
+    keep_u = set(np.random.default_rng(0).choice(len(uid), a.max_users, replace=False).tolist())
+    sel = [k for k, u in enumerate(U) if uid[u] in keep_u]
+    U, I, T = [U[k] for k in sel], [I[k] for k in sel], [T[k] for k in sel]
+    uid = {u: k for k, u in enumerate(sorted(set(U)))}
 users = np.array([uid[u] for u in U]); ts = np.array(T, dtype=np.int64)
 order = np.lexsort((np.arange(len(users)), ts, users))
 users, ts = users[order], ts[order]
