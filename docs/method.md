@@ -77,6 +77,6 @@ Implemented in [`scripts/aggregate.py`](../scripts/aggregate.py):
   per-seed means. The Welch test has low power with 2-3 seeds and is reported only as a sanity check.
 - **Multiplicity:** Holm correction over the 12 planned comparisons in [`tasr/configs.py`](../tasr/configs.py), separately per metric.
   The primary metric is Recall@10; NDCG@10 and Incr@10 are secondary.
-- **Seeds:** 3 for the core configs, 2 for the secondary ones, 1 for the negatives heatmap (CPU budget). The sign-flip test treats
+- **Seeds:** 3 for the core configs (sasrec, hstu-notime, hstu-trel, hstu-trel+trope, hstu-full); 1 for the secondary configs and the negatives heatmap (CPU budget). The sign-flip test treats
   users as the unit and does not account for seed variance. Single-seed comparisons should be read with that in mind; the
   hierarchical CI does include seed variance wherever there are at least 2 seeds.
