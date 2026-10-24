@@ -43,33 +43,32 @@ for k in ("Pop", "RecentPop", "ItemKNN", "Ensemble-RRF"):
     runs[k] = {"ranks": np.load(f"{R}/ranks/{k}.npy")[None], "meta": None}
 
 n_users = next(iter(runs.values()))["ranks"].shape[1]
-UIDX = rng.integers(0, n_users, (B, n_users))
+# bootstrap user multiplicities, shared by all configs (=> differences are paired over users)
+W = np.stack([np.bincount(rng.integers(0, n_users, n_users), minlength=n_users) for _ in range(B)]).astype(np.float32)
 
 
-def hboot(M):  # M: (S, U) per-seed per-user values -> bootstrap means (B,)
+def hboot(M):  # M: (S, U) per-seed per-user values -> bootstrap means (B,), resampling users and seeds
+    per_seed = (M.astype(np.float32) @ W.T) / n_users  # (S, B)
     S = M.shape[0]
-    out = np.empty(B)
-    for b in range(B):
-        sidx = rng.integers(0, S, S)
-        out[b] = M[sidx][:, UIDX[b]].mean()
-    return out
+    sidx = rng.integers(0, S, (B, S))
+    return per_seed[sidx, np.arange(B)[:, None]].mean(1)
 
 
 summary = {"configs": {}, "comparisons": [], "n_users": int(n_users)}
 boots = {}
-for c, R in runs.items():
-    pu = {m: np.stack([per_user(r)[m] for r in R["ranks"]]).astype(float) for m in METRICS}
-    row = {"n_seeds": int(R["ranks"].shape[0])}
+for c, RR in runs.items():
+    pu = {m: np.stack([per_user(r)[m] for r in RR["ranks"]]).astype(float) for m in METRICS}
+    row = {"n_seeds": int(RR["ranks"].shape[0])}
     for m in METRICS:
         bt = hboot(pu[m]); boots[(c, m)] = bt
         row[m] = {"mean": float(pu[m].mean()), "lo": float(np.percentile(bt, 2.5)), "hi": float(np.percentile(bt, 97.5)),
                   "seed_means": [float(x) for x in pu[m].mean(1)]}
-    if R["meta"]:
-        row["curves_val_ndcg10"] = [[e["val_NDCG@10"] for e in x["log"]] for x in R["meta"]]
-        row["epoch_sec"] = [[e["sec"] for e in x["log"]] for x in R["meta"]]
-        row["train_min"] = float(np.mean([x["train_sec"] for x in R["meta"]]) / 60)
-        row["best_epoch"] = [x["best_epoch"] for x in R["meta"]]
-        row["n_params"] = R["meta"][0]["n_params"]
+    if RR["meta"]:
+        row["curves_val_ndcg10"] = [[e["val_NDCG@10"] for e in x["log"]] for x in RR["meta"]]
+        row["epoch_sec"] = [[e["sec"] for e in x["log"]] for x in RR["meta"]]
+        row["train_min"] = float(np.mean([x["train_sec"] for x in RR["meta"]]) / 60)
+        row["best_epoch"] = [x["best_epoch"] for x in RR["meta"]]
+        row["n_params"] = RR["meta"][0]["n_params"]
     summary["configs"][c] = row
     runs[c]["pu"] = pu
 
