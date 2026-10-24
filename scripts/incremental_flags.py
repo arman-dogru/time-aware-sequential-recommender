@@ -18,7 +18,6 @@ d = SeqData(a.data, a.max_len)
 ens = Ensemble(d)
 flags, off = [], [0]
 m = ens.knn.m
-w = ens.knn.decay ** torch.arange(m - 1, -1, -1, dtype=torch.float32)
 for u in range(d.n_users):
     it, ts = d.seq(u)
     pos = window_positions(d, u)  # target indices
@@ -26,8 +25,7 @@ for u in range(d.n_users):
     # last-m items before each target
     idx = pos[:, None] - np.arange(m, 0, -1)[None]
     last = torch.where(torch.from_numpy(idx) >= 0, itt[np.clip(idx, 0, None)], torch.zeros(1, dtype=torch.long))
-    sc_knn = torch.einsum("pm,pmn->pn", w[None].expand(len(pos), -1) * (last > 0).float(), ens.knn.sim[last])
-    sc_knn += 1e-6 * ens.pop[None]
+    sc_knn = ens.knn.scores_last(last) + 1e-6 * ens.pop[None]
     sc_rp = ens.rpop.scores(ts[pos])
     first = np.full(d.n_items + 1, 10**9); first[it[::-1]] = np.arange(len(it))[::-1]
     seen = torch.from_numpy(first[None, :] < pos[:, None]); seen[:, 0] = True

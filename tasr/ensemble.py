@@ -19,21 +19,25 @@ class Ensemble:
                 "RecentPop": self.rpop.scores(q_last),
                 "ItemKNN": self.knn.scores(x) + 1e-6 * self.pop[None]}  # pop tie-break for cold histories
 
-    def ranks(self, split, bs=512):
-        """per member ranks + RRF fusion ranks for the eval split."""
-        out = {k: [] for k in ("Pop", "RecentPop", "ItemKNN", "Ensemble-RRF")}
-        for s in range(0, self.data.n_users, bs):
-            users = range(s, min(s + bs, self.data.n_users))
+    def ranks(self, split, bs=512, users=None, rrf=True):
+        """per member ranks (+ RRF fusion ranks) for the eval split, optionally on a user subset."""
+        all_users = np.arange(self.data.n_users) if users is None else np.asarray(users)
+        out = {k: [] for k in ("Pop", "RecentPop", "ItemKNN") + (("Ensemble-RRF",) if rrf else ())}
+        for s in range(0, len(all_users), bs):
+            users = all_users[s: s + bs]
             x, t, q, tg, hist = self.data.eval_batch(users, split)
             hm = self.data.history_mask(hist)
             sc = self.member_scores(x, q[:, -1].numpy())
-            rrf = 0
+            rrf_s = 0
             for k, v in sc.items():
                 r = ranks_from_scores(v, tg, hm)
                 out[k].append(r)
+                if not rrf:
+                    continue
                 v = v.masked_fill(hm, float("-inf"))
                 order = torch.argsort(v, 1, descending=True)
                 rk = torch.empty_like(order); rk.scatter_(1, order, torch.arange(1, v.shape[1] + 1).expand_as(order))
-                rrf = rrf + 1.0 / (60 + rk.float())
-            out["Ensemble-RRF"].append(ranks_from_scores(rrf, tg, hm))
+                rrf_s = rrf_s + 1.0 / (60 + rk.float())
+            if rrf:
+                out["Ensemble-RRF"].append(ranks_from_scores(rrf_s, tg, hm))
         return {k: np.concatenate(v) for k, v in out.items()}

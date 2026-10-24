@@ -36,7 +36,7 @@ def get_args(argv=None):
     p.add_argument("--patience", type=int, default=5)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--threads", type=int, default=2)
-    p.add_argument("--out", default="runs")
+    p.add_argument("--out", default=None, help="default runs/<dataset>")
     p.add_argument("--data", default="data/processed/ml1m.npz")
     return p.parse_args(argv)
 
@@ -59,7 +59,8 @@ def main(argv=None):
     a = get_args(argv)
     torch.manual_seed(a.seed); np.random.seed(a.seed)
     torch.set_num_threads(a.threads)
-    out = os.path.join(a.out, a.name, f"seed{a.seed}")
+    ds = os.path.basename(a.data).replace(".npz", "")
+    out = os.path.join(a.out or os.path.join("runs", ds), a.name, f"seed{a.seed}")
     os.makedirs(out, exist_ok=True)
     data = SeqData(a.data, a.max_len)
     model = SeqRec(data.n_items, a.arch, a.d, a.layers, a.heads, a.max_len, a.dropout,
@@ -101,7 +102,7 @@ def main(argv=None):
                     hard = neighbors[xv][torch.arange(len(yv))[:, None], pick]
                     neg_logit = torch.cat([neg_logit, torch.einsum("nd,nkd->nk", hv, E[hard])], 1)
                     neg_ids = torch.cat([neg_ids, hard], 1)
-                bad_neg = neg_ids == yv[:, None]
+                bad_neg = (neg_ids == yv[:, None]) | (neg_ids == 0)  # 0 = padding / missing neighbour
                 if a.pos_aware:  # never treat a known positive of this user as a negative
                     hm = data.history_mask([train_hist[u] for u in users])
                     row = torch.arange(len(users))[:, None].expand_as(y)[valid]

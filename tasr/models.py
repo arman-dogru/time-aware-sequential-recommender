@@ -6,8 +6,8 @@ attention with gating), with switchable time features:
           time of position i (timestamp of the event being predicted) -- as in HSTU's
           RelativeBucketedTimeAndPositionBasedBias; buckets are log_{sqrt 2} of the gap in seconds.
   trope : time rotary encoding -- q_i rotated by omega * q_i, k_j by omega * t_j (seconds), periods
-          geometric from 1 minute to ~4 years, applied to half of each head's dims.
-  tabs  : absolute calendar embeddings (hour-of-day, day-of-week, month-index) of each event
+          geometric from 1 minute to ~8 years, applied to half of each head's dims.
+  tabs  : absolute calendar embeddings (hour-of-day, day-of-week, month-of-year) of each event
           added to the input, and of the query time added to the output state.
 """
 import math
@@ -24,7 +24,7 @@ def time_bucket(dt):
 
 
 class TimeRoPE(nn.Module):
-    def __init__(self, rot_dim, min_period=60.0, max_period=4 * 365 * 86400.0):
+    def __init__(self, rot_dim, min_period=60.0, max_period=8 * 365 * 86400.0):
         super().__init__()
         n = rot_dim // 2
         periods = torch.logspace(math.log10(min_period), math.log10(max_period), n)
@@ -105,8 +105,8 @@ class SeqRec(nn.Module):
         self.abs_pos = nn.Embedding(L, d) if pos == "abs" else None
         self.tabs = tabs
         if tabs:
-            self.cal_in = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(48, d)])
-            self.cal_q = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(48, d)])
+            self.cal_in = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(12, d)])
+            self.cal_q = nn.ModuleList([nn.Embedding(24, d), nn.Embedding(7, d), nn.Embedding(12, d)])
         self.blocks = nn.ModuleList(Block(arch, d, heads, L, dropout, pos, trel, trope) for _ in range(layers))
         for m in self.modules():  # small init for every embedding (default N(0,1) would swamp item embeddings)
             if isinstance(m, nn.Embedding) and m is not self.emb:
@@ -121,7 +121,7 @@ class SeqRec(nn.Module):
         t = t.clamp(min=0)
         hour = (t // 3600) % 24
         dow = (t // 86400 + 3) % 7  # 1970-01-01 was a Thursday
-        month = ((t - 946_684_800).clamp(min=0) // (30 * 86400)).clamp(max=47)  # months since 2000-01
+        month = ((t // 86400) % 365.2425 // 30.437).long().clamp(max=11)  # approx. month-of-year
         return mods[0](hour) + mods[1](dow) + mods[2](month)
 
     def encode(self, x, t, q):

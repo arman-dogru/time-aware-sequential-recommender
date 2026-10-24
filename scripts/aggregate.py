@@ -14,10 +14,15 @@ from scipy import stats
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tasr.configs import CONFIGS, COMPARISONS
 
+import argparse
+ap = argparse.ArgumentParser()
+ap.add_argument("--ds", default="ml1m")
+DS = ap.parse_args().ds
+R = f"results/{DS}"
 B, FLIPS = 2000, 10000
 rng = np.random.default_rng(12345)
-union = dict(np.load("results/ranks/ensemble_union_hits.npz"))
-base = json.load(open("results/baselines.json"))
+union = dict(np.load(f"{R}/ranks/ensemble_union_hits.npz"))
+base = json.load(open(f"{R}/baselines.json"))
 
 
 def per_user(r):
@@ -30,12 +35,12 @@ def per_user(r):
 METRICS = ["R@2", "R@10", "R@50", "NDCG@10", "Incr@2", "Incr@10"]
 runs = {}
 for c in CONFIGS:
-    seeds = sorted(glob.glob(f"runs/{c}/seed*/test_ranks.npy"))
+    seeds = sorted(glob.glob(f"runs/{DS}/{c}/seed*/test_ranks.npy"))
     if seeds:
         runs[c] = {"ranks": np.stack([np.load(s) for s in seeds]),
                    "meta": [json.load(open(s.replace("test_ranks.npy", "metrics.json"))) for s in seeds]}
 for k in ("Pop", "RecentPop", "ItemKNN", "Ensemble-RRF"):
-    runs[k] = {"ranks": np.load(f"results/ranks/{k}.npy")[None], "meta": None}
+    runs[k] = {"ranks": np.load(f"{R}/ranks/{k}.npy")[None], "meta": None}
 
 n_users = next(iter(runs.values()))["ranks"].shape[1]
 UIDX = rng.integers(0, n_users, (B, n_users))
@@ -60,6 +65,8 @@ for c, R in runs.items():
         row[m] = {"mean": float(pu[m].mean()), "lo": float(np.percentile(bt, 2.5)), "hi": float(np.percentile(bt, 97.5)),
                   "seed_means": [float(x) for x in pu[m].mean(1)]}
     if R["meta"]:
+        row["curves_val_ndcg10"] = [[e["val_NDCG@10"] for e in x["log"]] for x in R["meta"]]
+        row["epoch_sec"] = [[e["sec"] for e in x["log"]] for x in R["meta"]]
         row["train_min"] = float(np.mean([x["train_sec"] for x in R["meta"]]) / 60)
         row["best_epoch"] = [x["best_epoch"] for x in R["meta"]]
         row["n_params"] = R["meta"][0]["n_params"]
@@ -90,11 +97,12 @@ for m in ("R@10", "NDCG@10", "Incr@10"):
         fam[i]["p_holm"] = running
     summary["comparisons"] += fam
 
-os.makedirs("results", exist_ok=True)
-json.dump(summary, open("results/summary.json", "w"), indent=1)
+json.dump(summary, open(f"{R}/summary.json", "w"), indent=1)
+# per-user test ranks of every run (int16 is enough: catalog < 32k) so figures/stats are reproducible without runs/
+np.savez_compressed(f"{R}/test_ranks.npz", **{c: v["ranks"].astype(np.int16) for c, v in runs.items()})
 
 f = lambda x: f"{100 * x['mean']:.2f} [{100 * x['lo']:.2f}, {100 * x['hi']:.2f}]"
-lines = ["# Results (ML-1M, leave-one-out test, full-catalog ranking, 6,040 users)", "",
+lines = [f"# Results: {DS} (leave-one-out test, full-catalog ranking, {n_users:,} users)", "",
          "Values are % with 95% hierarchical-bootstrap CIs (users x seeds). Incr@K = share of test users whose "
          "target the model ranks in its top-K while the union of the top-K of Pop, RecentPop and ItemKNN misses it.", "",
          "| model | seeds | R@2 | R@10 | R@50 | NDCG@10 | Incr@2 | Incr@10 | train min/run | best epochs |",
@@ -109,5 +117,5 @@ lines += ["", f"Ensemble union (3 members, top-K each): R@2 {100 * union['K2'].m
 for x in summary["comparisons"]:
     lines.append(f"| {x['metric']} | {x['a']} | {x['b']} | {100 * x['diff']:+.2f} [{100 * x['lo']:+.2f}, {100 * x['hi']:+.2f}] | "
                  f"{100 * x['rel']:+.1f}% | {x['p_signflip']:.4f} | {x['p_holm']:.4f} | {x['p_seed_welch']:.3f} |")
-open("results/summary.md", "w").write("\n".join(lines) + "\n")
+open(f"{R}/summary.md", "w").write("\n".join(lines) + "\n")
 print("\n".join(lines))
