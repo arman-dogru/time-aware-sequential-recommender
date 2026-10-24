@@ -1,0 +1,9 @@
+# Runtime dependencies (CPU-only). Exact versions used for every reported result; full transitive lock in requirements-lock.txt.
+# torch must come from the CPU wheel index:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1+cpu
+#   pip install -r requirements.txt
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1+cpu
+numpy==2.5.4
+scipy==1.18.1
+matplotlib==3.11.2

@@ -3,7 +3,8 @@
 # Resumable; JOBS parallel workers x THREADS torch threads each.  Usage: SEEDS="0 1 2" JOBS=4 scripts/run_grid.sh
 set -u
 cd "$(dirname "$0")/.."
-PY=${PY:-../tasr-venv/bin/python}
+# interpreter: $PY if set, else the in-repo .venv, else python3 on PATH
+PY=${PY:-$([ -x .venv/bin/python ] && echo .venv/bin/python || command -v python3)}
 DATA=${DATA:-data/processed/ml1m.npz}; MAXLEN=${MAXLEN:-100}; DS=$(basename "$DATA" .npz)
 SEEDS=${SEEDS:-"0 1 2"}; JOBS=${JOBS:-4}; THREADS=${THREADS:-2}; ONLY=${ONLY:-}
 mkdir -p logs

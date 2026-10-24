@@ -4,7 +4,8 @@
 #   Amazon'23 Industrial_and_Scientific, 10k-user subsample: AMAZON x seeds 0-2   (AMZ_JOBS parallel)
 set -u
 cd "$(dirname "$0")/.."
-PY=${PY:-../tasr-venv/bin/python}
+# interpreter: $PY if set, else the in-repo .venv, else python3 on PATH
+PY=${PY:-$([ -x .venv/bin/python ] && echo .venv/bin/python || command -v python3)}
 cfg() { PYTHONPATH=. $PY -c "import tasr.configs as c; print(' '.join($1))"; }
 ml() { DATA=data/processed/ml1m.npz MAXLEN=100 "$@"; }
 amz() { DATA=data/processed/amz_Industrial_and_Scientific_u10k.npz MAXLEN=50 "$@"; }
