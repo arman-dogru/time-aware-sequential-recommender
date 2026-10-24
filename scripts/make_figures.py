@@ -69,7 +69,7 @@ fig.tight_layout(); fig.savefig(f"{FIG}/training_curves.png", dpi=110); plt.clos
 # D. negative-sampling heatmap (ML-1M) ------------------------------------------------------------
 if "ml1m" in S:
     s = S["ml1m"]["configs"]
-    Ss, Hs = (128, 512, 2048), (0, 16, 64)
+    Ss, Hs = (128, 512, 2048), (0, 16)
     grid = np.full((len(Ss), len(Hs)), np.nan); gridn = np.full_like(grid, np.nan)
     for i, a in enumerate(Ss):
         for j, b in enumerate(Hs):

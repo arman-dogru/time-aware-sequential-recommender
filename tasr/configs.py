@@ -30,15 +30,15 @@ CONFIGS = {
 }
 # --- negative-sampling sweep (sampled softmax), heatmap S x H -----------------------------------------
 for S in (128, 512, 2048):
-    for H in (0, 16, 64):
+    for H in (0, 16):
         CONFIGS[f"neg:S{S}-H{H}"] = HSTU_TT + ["--loss", "sampled", "--n-shared", str(S), "--n-hard", str(H)]
 CONFIGS["neg:S512-H16-nopa"] = HSTU_TT + ["--loss", "sampled", "--n-shared", "512", "--n-hard", "16", "--pos-aware", "0"]
 CONFIGS["neg:sasrec-S512-H16"] = ["--arch", "sasrec", "--pos", "abs", "--trel", "0", "--loss", "sampled",
                                   "--n-shared", "512", "--n-hard", "16"]
 
 MAIN = [c for c in CONFIGS if not c.startswith("neg:")]
-# CPU budget (box load ~35 on 8 cores, ~2 h per ML-1M run): 3 seeds for the core configs, 2 for the rest of
-# the main grid, 1 seed for the negatives heatmap.
+# CPU budget (box load ~35-42 on 8 cores, 2-6 h per ML-1M run): 3 seeds for the core configs, 1 for the rest of
+# the main grid and for the negatives heatmap (H=64 column dropped).
 CORE = ["sasrec", "hstu-notime", "hstu-trel", "hstu-trel+trope", "hstu-full"]
 SECONDARY = [c for c in MAIN if c not in CORE]
 # Amazon (10k-user subsample, L=50): the architecture x time core only (CPU budget)
