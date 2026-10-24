@@ -59,3 +59,12 @@ COMPARISONS = [
     ("neg:S512-H16-nopa", "neg:S512-H16"), # positive-aware masking off
     ("neg:S512-H16", "hstu-trel+trope"),   # sampled vs full softmax
 ]
+
+# The scheduled grid (single source of truth for scripts/run_all.sh and scripts/check_grid.py):
+# dataset -> list of (configs, seeds). Runs marked skipped by a placeholder runs/<ds>/<cfg>/seed<k>/metrics.json
+# containing {"skipped": ...} never appear here; scheduled runs must all have test_ranks.npy.
+NEG = [c for c in CONFIGS if c.startswith("neg:")]
+SCHEDULE = {
+    "ml1m": [(CORE, (0, 1, 2)), (SECONDARY, (0,)), (NEG, (0,))],
+    "amz_Industrial_and_Scientific_u10k": [(AMAZON, (0, 1, 2))],
+}
