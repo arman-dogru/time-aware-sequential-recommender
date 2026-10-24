@@ -6,3 +6,4 @@ runs/
 *.pt
 .venv/
 logs/
+runs_pilot/
