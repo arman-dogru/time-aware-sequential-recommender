@@ -182,3 +182,23 @@ if os.path.exists("results/bench.json"):
     axes[2].set_title(f"training step throughput (load avg {b['loadavg_start'][0]:.0f} on {b['cpus']} CPUs)", fontsize=9)
     fig.tight_layout(); fig.savefig(f"{FIG}/latency_throughput.png", dpi=110); plt.close(fig)
 print("figures:", sorted(os.listdir(FIG)))
+
+# I. query-time ablation (eval-only; scripts/eval_query_time.py) --------------------------------------
+QT = {ds: json.load(open(f"results/{ds}/query_time_ablation.json")) for ds in DS if os.path.exists(f"results/{ds}/query_time_ablation.json")}
+if QT:
+    fig, axes = plt.subplots(1, len(QT), figsize=(7 * len(QT), 4.5), squeeze=False)
+    for ax, (ds, q) in zip(axes[0], QT.items()):
+        names = [c for c in MAIN if c in q["configs"]]
+        x = np.arange(len(names))
+        a = [100 * q["configs"][c]["R10_target"] for c in names]; b = [100 * q["configs"][c]["R10_lasthist"] for c in names]
+        ax.bar(x - 0.2, a, 0.4, label="query time = target timestamp (protocol)")
+        ax.bar(x + 0.2, b, 0.4, label="query time = last history timestamp")
+        for xi, c in zip(x, names):
+            e = q["configs"][c]
+            ax.text(xi, max(a[list(names).index(c)], b[list(names).index(c)]) + 0.3,
+                    f"{100 * e['diff']:+.1f}\n[{100 * e['lo']:+.1f},{100 * e['hi']:+.1f}]", ha="center", fontsize=6)
+        ax.set_xticks(x, [f"{c}\n(n={len(q['configs'][c]['seeds'])})" for c in names], rotation=35, ha="right", fontsize=7)
+        ax.set_ylabel("test Recall@10 (%)"); ax.set_title(f"{DS[ds]}: eval-only query-time ablation (diff pp, 95% CI)", fontsize=9)
+        ax.legend(fontsize=7)
+    fig.tight_layout(); fig.savefig(f"{FIG}/query_time_ablation.png", dpi=110); plt.close(fig)
+    print("query_time_ablation.png")

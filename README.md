@@ -12,6 +12,10 @@ Results carry 95% CIs over users × seeds, with Holm-corrected paired tests.
 
 > The numbers live in the tables below; they are rendered from `summary.json` by [`scripts/readme_tables.py`](scripts/readme_tables.py).
 
+0. **What "query time" means here.** The time of the request is the test-time query time, which is the **timestamp of the held-out target event**. Every time feature is computed relative to it. The target's item is never visible, but its timestamp is.
+   - On ML-1M, this reveals that 74% of test targets come less than a minute after the last history event, inside the same rating session.
+   - A model that sees "a few seconds have passed" can lean on the session structure.
+   - The eval-only ablation in [`results/*/query_time_ablation.json`](results/ml1m/query_time_ablation.json) ([`scripts/eval_query_time.py`](scripts/eval_query_time.py)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp instead. In that setting the model cannot know how long ago the user acted. See the query-time figure below.
 1. **Time in attention helps on ML-1M, but by modelling rating sessions.**
    - On ML-1M, the relative time bias (`trel`) adds a few points of Recall@10 on both backbones, HSTU and SASRec.
    - The recall-by-gap figure shows that the gain is concentrated where the target follows the last event within a minute. That is the ML-1M rating-burst artefact, not long-horizon seasonality.
@@ -76,6 +80,9 @@ Planned comparisons (Recall@10, percentage points; Holm over the family; full ta
 
 ![test Recall@10 per model, split by the gap between the last history event and the test target (<1 min ... >30 d), with bootstrap CIs and bucket sizes.](docs/figures/recall_by_gap.png)
 *Alt: test Recall@10 per model, split by the gap between the last history event and the test target (<1 min ... >30 d), with bootstrap CIs and bucket sizes. Data: [`results/ml1m/recall_by_gap.json`](results/ml1m/recall_by_gap.json), [`results/amz_Industrial_and_Scientific_u10k/recall_by_gap.json`](results/amz_Industrial_and_Scientific_u10k/recall_by_gap.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
+
+![query-time ablation](docs/figures/query_time_ablation.png)
+*Alt: paired bars of test Recall@10 for each trained checkpoint evaluated with the protocol query time (target timestamp) and with the last history timestamp, with the difference and its 95% CI. Data: [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json), [`results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json`](results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json). Script: [`scripts/eval_query_time.py`](scripts/eval_query_time.py), [`scripts/make_figures.py`](scripts/make_figures.py).*
 
 ![learned additive attention bias per log-time bucket (per layer and head) of hstu-trel seed 0; the bias is large for gaps of about 10 s to 1 min (rating sessions) on ML-1M.](docs/figures/learned_time_bias.png)
 *Alt: learned additive attention bias per log-time bucket (per layer and head) of hstu-trel seed 0; the bias is large for gaps of about 10 s to 1 min (rating sessions) on ML-1M. Data: [`results/ml1m/learned_time_bias.json`](results/ml1m/learned_time_bias.json), [`results/amz_Industrial_and_Scientific_u10k/learned_time_bias.json`](results/amz_Industrial_and_Scientific_u10k/learned_time_bias.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
@@ -161,6 +168,41 @@ flowchart LR
     AG --> F["make_figures.py<br/>docs/figures/*.png"]
     BE["bench.py"] --> F
 ```
+
+## Install and reproduce (fresh clone)
+
+Tested with Python 3.13.5 on linux x86_64, CPU only. [`requirements.txt`](requirements.txt) pins the direct dependencies, and [`requirements-lock.txt`](requirements-lock.txt) is the full `pip freeze` of the venv that produced every reported number.
+
+```bash
+git clone https://github.com/arman-dogru/time-aware-sequential-recommender && cd time-aware-sequential-recommender
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-lock.txt        # or: -r requirements.txt (direct pins), -r requirements-dev.txt (+pytest)
+.venv/bin/python -m pytest -q tests                    # unit + mutation tests (seconds)
+export PYTHONPATH=.                                    # scripts default to PY=.venv/bin/python (override with PY=...)
+
+# 1. data (downloads are sha256-checked; raw data is never committed)
+.venv/bin/python scripts/prepare_ml1m.py
+.venv/bin/python scripts/prepare_amazon.py --max-users 10000
+.venv/bin/python scripts/plot_data.py                  # docs/figures/data_timeline.png
+
+# 2. baselines and ensemble (tuned on validation) + incremental-training flags
+.venv/bin/python scripts/eval_baselines.py
+.venv/bin/python scripts/eval_baselines.py --data data/processed/amz_Industrial_and_Scientific_u10k.npz --max-len 50
+.venv/bin/python scripts/incremental_flags.py
+
+# 3. the grid (tasr/configs.py SCHEDULE; resumable, lock-aware; logs/grid.log). Hours of CPU time.
+ML_JOBS=4 AMZ_JOBS=2 nohup scripts/run_all.sh &
+
+# 4. once the grid is done: completeness check, tests, bench, aggregation, query-time ablation,
+#    figures, README tables, then commit and push (fast-forward only, never force)
+scripts/finalize.sh            # or step by step:
+.venv/bin/python scripts/check_grid.py
+.venv/bin/python scripts/aggregate.py --ds ml1m && .venv/bin/python scripts/aggregate.py --ds amz_Industrial_and_Scientific_u10k
+.venv/bin/python scripts/eval_query_time.py && .venv/bin/python scripts/bench.py
+.venv/bin/python scripts/make_figures.py && .venv/bin/python scripts/readme_tables.py
+```
+
+A single run: `.venv/bin/python -m tasr.train --name hstu-trel --loss full --arch hstu --pos rel --trel 1 --seed 0` (writes `runs/ml1m/hstu-trel/seed0/`).
 
 ## Caveats
 
