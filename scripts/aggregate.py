@@ -13,6 +13,7 @@ from scipy import stats
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tasr.configs import CONFIGS, COMPARISONS
+from tasr import stats as st
 
 import argparse
 ap = argparse.ArgumentParser()
@@ -26,10 +27,7 @@ base = json.load(open(f"{R}/baselines.json"))
 
 
 def per_user(r):
-    r = np.asarray(r, float)
-    return {"R@2": r <= 2, "R@10": r <= 10, "R@50": r <= 50,
-            "NDCG@10": np.where(r <= 10, 1 / np.log2(r + 1), 0.0),
-            "Incr@2": (r <= 2) & ~union["K2"], "Incr@10": (r <= 10) & ~union["K10"]}
+    return st.per_user(r, union)
 
 
 METRICS = ["R@2", "R@10", "R@50", "NDCG@10", "Incr@2", "Incr@10"]
@@ -44,14 +42,11 @@ for k in ("Pop", "RecentPop", "ItemKNN", "Ensemble-RRF"):
 
 n_users = next(iter(runs.values()))["ranks"].shape[1]
 # bootstrap user multiplicities, shared by all configs (=> differences are paired over users)
-W = np.stack([np.bincount(rng.integers(0, n_users, n_users), minlength=n_users) for _ in range(B)]).astype(np.float32)
+W = st.bootstrap_weights(n_users, B, rng)
 
 
 def hboot(M):  # M: (S, U) per-seed per-user values -> bootstrap means (B,), resampling users and seeds
-    per_seed = (M.astype(np.float32) @ W.T) / n_users  # (S, B)
-    S = M.shape[0]
-    sidx = rng.integers(0, S, (B, S))
-    return per_seed[sidx, np.arange(B)[:, None]].mean(1)
+    return st.hboot(M, W, rng)
 
 
 summary = {"configs": {}, "comparisons": [], "n_users": int(n_users)}
@@ -80,9 +75,7 @@ for m in ("R@10", "NDCG@10", "Incr@10"):
         A, Bm = runs[a]["pu"][m], runs[b]["pu"][m]
         d_user = A.mean(0) - Bm.mean(0)
         obs = d_user.mean()
-        signs = rng.choice([-1.0, 1.0], (FLIPS, n_users))
-        null = (signs * d_user).mean(1)
-        p_perm = float((np.sum(np.abs(null) >= abs(obs) - 1e-12) + 1) / (FLIPS + 1))
+        p_perm = st.signflip_p(d_user, FLIPS, rng)
         bt = boots[(a, m)] - boots[(b, m)]  # same user resample index per replicate -> paired over users
         sa, sb = A.mean(1), Bm.mean(1)
         p_t = float(stats.ttest_ind(sa, sb, equal_var=False).pvalue) if len(sa) > 1 and len(sb) > 1 else float("nan")
@@ -90,10 +83,8 @@ for m in ("R@10", "NDCG@10", "Incr@10"):
                         hi=float(np.percentile(bt, 97.5)), rel=float(obs / Bm.mean()) if Bm.mean() else None,
                         p_signflip=p_perm, p_seed_welch=p_t))
     # Holm over the family (per metric) on the sign-flip p
-    order = np.argsort([f["p_signflip"] for f in fam]); k = len(fam); running = 0
-    for rank, i in enumerate(order):
-        running = max(running, min(1.0, (k - rank) * fam[i]["p_signflip"]))
-        fam[i]["p_holm"] = running
+    for f_, ph in zip(fam, st.holm([f["p_signflip"] for f in fam])):
+        f_["p_holm"] = float(ph)
     summary["comparisons"] += fam
 
 json.dump(summary, open(f"{R}/summary.json", "w"), indent=1)
