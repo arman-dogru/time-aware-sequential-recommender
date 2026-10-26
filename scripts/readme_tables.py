@@ -22,7 +22,9 @@ for ds, title in DS.items():
         if x["metric"] == "R@10":
             out.append(f"| {x['a']} vs {x['b']} | {100 * x['diff']:+.2f} [{100 * x['lo']:+.2f}, {100 * x['hi']:+.2f}] | "
                        f"{x['p_signflip']:.4f} | {x['p_holm']:.4f} |")
-    out.append("")
+    out += ["", "p-values (sign-flip over users, then Holm) condition on the trained checkpoints and ignore seed variance; the CIs "
+            "(hierarchical bootstrap over users x seeds) include it. Treat a comparison as significant only when Holm p < 0.05 "
+            "and the CI excludes zero.", ""]
 txt = open("README.md").read()
 new = "<!-- TABLES:BEGIN -->\n" + "\n".join(out) + "\n<!-- TABLES:END -->"
 txt = re.sub(r"<!-- TABLES:BEGIN -->.*<!-- TABLES:END -->", lambda m: new, txt, flags=re.S)

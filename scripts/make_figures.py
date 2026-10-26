@@ -37,18 +37,24 @@ for ax, (ds, s) in zip(axes[0], S.items()):
 fig.tight_layout(); fig.savefig(f"{FIG}/recall10_overview.png", dpi=110); plt.close(fig)
 
 # B. forest plot of planned comparisons -------------------------------------------------------------
-fig, axes = plt.subplots(1, len(S), figsize=(7.5 * len(S), 6), squeeze=False)
+fig, axes = plt.subplots(1, len(S), figsize=(8.5 * len(S), 6), squeeze=False)
 for ax, (ds, s) in zip(axes[0], S.items()):
     comp = [c for c in s["comparisons"] if c["metric"] == "R@10"]
     y = np.arange(len(comp))
+    lo_all, hi_all = min(100 * c["lo"] for c in comp), max(100 * c["hi"] for c in comp)
+    pad = 0.02 * (hi_all - lo_all)
     for yi, c in zip(y, comp):
-        sig = c["p_holm"] < 0.05
+        p_sig = c["p_holm"] < 0.05
+        ci_sig = c["lo"] > 0 or c["hi"] < 0  # hierarchical CI (users x seeds) excludes zero
+        sig = p_sig and ci_sig  # significant only when the test AND the CI agree
+        col = "#2ca02c" if sig and c["diff"] > 0 else ("#d62728" if sig else "#555555")
         ax.errorbar(100 * c["diff"], yi, xerr=[[100 * (c["diff"] - c["lo"])], [100 * (c["hi"] - c["diff"])]],
-                    fmt="o", color="#2ca02c" if sig and c["diff"] > 0 else ("#d62728" if sig else "#555555"), capsize=3)
-        ax.text(ax.get_xlim()[1] if False else 100 * c["hi"] + 0.1, yi, f" p_Holm={c['p_holm']:.3f}", va="center", fontsize=7)
-    ax.axvline(0, color="k", lw=0.8)
+                    fmt="o", color=col, mfc=col if (sig or not p_sig) else "white", capsize=3)
+        flag = "  (Holm p<0.05 but CI spans 0)" if p_sig and not ci_sig else ""
+        ax.text(100 * c["hi"] + pad, yi, f" p_Holm={c['p_holm']:.3f}{flag}", va="center", fontsize=7)
+    ax.axvline(0, color="k", lw=0.8); ax.set_xlim(min(lo_all, 0) - 4 * pad, hi_all + 22 * pad)
     ax.set_yticks(y, [f"{c['a']}  vs  {c['b']}" for c in comp]); ax.invert_yaxis()
-    ax.set_xlabel("difference in test Recall@10 (pp), 95% CI; colored = Holm p<0.05"); ax.set_title(DS[ds])
+    ax.set_xlabel("difference in test Recall@10 (pp), 95% CI over users x seeds\ncolored = Holm p<0.05 AND CI excludes 0; hollow grey = Holm p<0.05 but CI spans 0"); ax.set_title(DS[ds])
 fig.tight_layout(); fig.savefig(f"{FIG}/comparisons_forest.png", dpi=110); plt.close(fig)
 
 # C. training curves -------------------------------------------------------------------------------
@@ -186,19 +192,19 @@ print("figures:", sorted(os.listdir(FIG)))
 # I. query-time ablation (eval-only; scripts/eval_query_time.py) --------------------------------------
 QT = {ds: json.load(open(f"results/{ds}/query_time_ablation.json")) for ds in DS if os.path.exists(f"results/{ds}/query_time_ablation.json")}
 if QT:
-    fig, axes = plt.subplots(1, len(QT), figsize=(7 * len(QT), 4.5), squeeze=False)
+    fig, axes = plt.subplots(1, len(QT), figsize=(9 * len(QT), 5.5), squeeze=False)
     for ax, (ds, q) in zip(axes[0], QT.items()):
         names = [c for c in MAIN if c in q["configs"]]
         x = np.arange(len(names))
         a = [100 * q["configs"][c]["R10_target"] for c in names]; b = [100 * q["configs"][c]["R10_lasthist"] for c in names]
         ax.bar(x - 0.2, a, 0.4, label="query time = target timestamp (protocol)")
-        ax.bar(x + 0.2, b, 0.4, label="query time = last history timestamp")
+        ax.bar(x + 0.2, b, 0.4, label="query time = last history timestamp (gap set to 0 s)")
         for xi, c in zip(x, names):
             e = q["configs"][c]
             ax.text(xi, max(a[list(names).index(c)], b[list(names).index(c)]) * 1.02,
-                    f"{100 * e['diff']:+.1f}\n[{100 * e['lo']:+.1f},{100 * e['hi']:+.1f}]", ha="center", fontsize=6)
-        ax.set_xticks(x, [f"{c}\n(n={len(q['configs'][c]['seeds'])})" for c in names], rotation=35, ha="right", fontsize=7)
-        ax.set_ylabel("test Recall@10 (%)"); ax.set_title(f"{DS[ds]}: eval-only query-time ablation (diff pp, 95% CI)", fontsize=9)
-        ax.set_ylim(0, max(a + b) * 1.25); ax.legend(fontsize=7, loc="upper left", ncol=2)
+                    f"{100 * e['diff']:+.2f}\n[{100 * e['lo']:+.2f},\n{100 * e['hi']:+.2f}]", ha="center", va="bottom", fontsize=8.5)
+        ax.set_xticks(x, [f"{c}\n(n={len(q['configs'][c]['seeds'])})" for c in names], rotation=35, ha="right", fontsize=9)
+        ax.set_ylabel("test Recall@10 (%)"); ax.set_title(f"{DS[ds]}: eval-only query-time ablation (labels: diff pp [95% CI])", fontsize=10)
+        ax.set_ylim(0, max(a + b) * 1.45); ax.legend(fontsize=9, loc="upper left", ncol=1)
     fig.tight_layout(); fig.savefig(f"{FIG}/query_time_ablation.png", dpi=110); plt.close(fig)
     print("query_time_ablation.png")

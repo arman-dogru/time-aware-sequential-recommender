@@ -1,12 +1,12 @@
 # Time-aware sequential recommender microbench (HSTU-inspired, CPU-only)
 
-This is a reproducible, CPU-only test of whether the levers in Shopify's generative-recommender post hold up on public data. The levers are time-aware attention, shared and hard negatives, and incremental recall versus an ensemble.
+This is a reproducible (aggregation, figures and tables are bit-exact from `runs/`; retraining matches to floating-point noise, see Caveats), CPU-only test of whether the levers in Shopify's generative-recommender post hold up on public data. The levers are time-aware attention, shared and hard negatives, and incremental recall versus an ensemble.
 It covers two datasets: MovieLens-1M, and Amazon Reviews 2023 Industrial & Scientific as the e-commerce set.
 It compares Pop, RecentPop, ItemKNN, SASRec and HSTU, each with and without time features.
 Results carry 95% CIs over users × seeds, with Holm-corrected paired tests.
 
-![Recall@10 overview](docs/figures/recall10_overview.png)
-*Alt: Recall@10 overview: horizontal bars of test Recall@10 with 95% CIs for every model on both datasets. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
+![Horizontal bars of test Recall@10 with 95% CIs over users x seeds for every model and baseline, one panel per dataset (MovieLens-1M and the Amazon 10k-user subsample), with the number of seeds per model.](docs/figures/recall10_overview.png)
+*Recall@10 overview: horizontal bars of test Recall@10 with 95% CIs for every model on both datasets. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
 ## Key findings
 
@@ -14,22 +14,22 @@ Results carry 95% CIs over users × seeds, with Holm-corrected paired tests.
 
 0. **What "query time" means here, and why it matters.** The query time at test is the **timestamp of the held-out target event**, and every time feature is computed relative to it. The target's item is never visible, but its timestamp is.
    - On ML-1M, 74% of test targets (4,495 of 6,040 users) come less than a minute after the last history event, inside the same rating session ([`results/ml1m/recall_by_gap.json`](results/ml1m/recall_by_gap.json), bucket sizes in the recall-by-gap figure).
-   - The eval-only ablation ([`scripts/eval_query_time.py`](scripts/eval_query_time.py), data in [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp, so the model can no longer tell how long ago the user acted.
+   - The eval-only ablation ([`scripts/eval_query_time.py`](scripts/eval_query_time.py), data in [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp (gap = 0 s), so the model is no longer told the real gap to the target. Gap = 0 s is a valid, in-distribution input (the most "same session" value), so this is a counterfactual input to a model trained on the true gap; a model *trained* with this convention could recover part of the gain, so the drop is an upper bound on how much the models rely on the query timestamp.
    - **Final result (3 seeds, ML-1M):** hstu-trel falls from 32.99 to 30.21 Recall@10 (−2.78 pp [−3.45, −2.07]), hstu-trel+trope from 33.41 to 30.54 (−2.87 pp [−3.55, −2.18]) and hstu-full from 32.67 to 30.36 (−2.30 pp [−3.25, −1.46]). That is back to hstu-notime (30.33). sasrec+trel (1 seed) falls by 2.07 pp [−2.75, −1.37], to 30.71. Models without time features are unchanged, as they must be.
    - **So most of the ML-1M relative-time gain comes from the query timestamp revealing sub-minute gaps to the target, not from the timestamps inside the history.** The trained-in gain (hstu-trel vs hstu-notime, +2.67 pp) is about the size of the drop.
    - On Amazon the drop is at most 0.03 pp and no CI excludes zero ([`results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json`](results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json)). See the query-time figure below.
 1. **Time in attention helps on ML-1M, by modelling rating sessions.** These comparisons are paired over users, Holm-corrected, and shown in the forest plot.
    - The relative time bias (`trel`) adds +2.67 pp Recall@10 [+1.84, +3.51] on HSTU (3 seeds) and +3.49 pp [+2.62, +4.44] on SASRec (sasrec+trel has 1 seed). Time RoPE alone adds +1.48 pp [+0.62, +2.30], and trel+trope adds +3.08 pp [+2.19, +3.96].
-   - Adding calendar embeddings on top (hstu-full) does not help: −0.74 pp [−2.03, +0.41]. The bootstrap CI over users and seeds crosses zero, though the user-level sign-flip test is significant (Holm p = 0.016), so it is at best neutral.
+   - Adding calendar embeddings on top (hstu-full vs hstu-trel+trope) does not help: −0.74 pp [−2.03, +0.41] over users × seeds, which is inconclusive. The user-level sign-flip (Holm p = 0.016) conditions on the three trained checkpoints, and the gap comes from seed 0: per-seed −2.09 / −0.41 / +0.28 pp, seed-level Welch p = 0.35 ([`results/ml1m/posthoc.json`](results/ml1m/posthoc.json), from [`scripts/audit.py`](scripts/audit.py)). That seed early-stopped at epoch 22, while seeds 1 and 2 ran to the 40-epoch cap (epoch-cap figure). So this is no evidence that calendar embeddings hurt; at most it is a small, unstable negative. The forest plot draws it as a hollow grey marker (test and CI disagree).
    - The recall-by-gap figure shows the gain sits in the < 1 min bucket (hstu-trel+trope 41.1% vs hstu-notime 37.4%). That is the ML-1M rating-burst artefact, not long-horizon seasonality.
    - Best ML-1M model: hstu-trel+trope at 33.41 [32.26, 34.55] Recall@10, +4.12 pp [+3.15, +5.13] over SASRec. Without time, HSTU beats SASRec by +1.04 pp [+0.22, +1.89].
 2. **On the sparse Amazon subsample, nothing beats popularity by much, and time features do not help.**
    - SASRec is best at 2.09 [1.84, 2.36] Recall@10, against Pop at 1.77 and the RRF ensemble at 1.97. HSTU is slightly below SASRec (hstu-notime −0.24 pp [−0.46, −0.01]), and trel or trel+trope change Recall@10 by less than 0.1 pp with CIs spanning zero.
    - Sequences are short (median 6) and the catalog is large (22k items) for 81k events, and the models peak within 5 to 9 epochs (training-curves figure). The Shopify regime, with billions of events, is far from this.
 3. **Incremental recall.** On ML-1M the neural models reach 17 to 20% Incr@10, meaning they rank the target in their top 10 for that share of users whose target the union of Pop, RecentPop and ItemKNN misses (union Recall@10 is 20.33%). Time features raise Incr@10 with Recall@10 (hstu-trel+trope vs hstu-notime +2.46 pp [+1.82, +3.11]). Boosting-style training on ensemble misses (`hstu-tt:incr1`, 1 seed) does not raise Incr@10 (+0.18 pp [−0.45, +0.84]) and costs 1.39 pp [0.59, 2.19] of Recall@10. On Amazon, Incr@10 stays below 1%. See the incremental-recall figure.
-4. **Negative sampling is a real lever (ML-1M, HSTU trel+trope, 1 seed).** See the negatives heatmap.
-   - More shared negatives help a lot: Recall@10 is 24.85 at S = 128, 30.20 at S = 512 and 32.76 at S = 2048, against 33.41 for the full softmax.
-   - 16 hard ItemKNN negatives add nothing at S = 512 (−0.66 pp [−1.57, +0.25]); at S = 2048 the gap to full softmax is within noise (33.10 vs 33.41).
+4. **Negative sampling is a real lever at a fixed 40-epoch budget (ML-1M, HSTU trel+trope, 1 seed).** All 7 sampled-softmax HSTU runs hit the 40-epoch cap with validation NDCG@10 still rising (+0.73 to +1.36 pp over their last 10 epochs; epoch-cap figure), so part of the effect of S may be convergence speed rather than final quality. See the negatives heatmap.
+   - At this budget, more shared negatives help a lot: Recall@10 is 24.85 at S = 128, 30.20 at S = 512 and 32.76 at S = 2048, against 33.41 for the full softmax.
+   - 16 hard ItemKNN negatives add nothing at S = 512 (−0.66 pp [−1.57, +0.25]); at S = 2048 with 16 hard negatives, the exploratory (unplanned, not Holm-corrected) gap to full softmax is −0.31 pp [−1.18, +0.56], sign-flip p = 0.42, i.e. not resolved ([`results/ml1m/posthoc.json`](results/ml1m/posthoc.json)).
    - Positive-aware masking matters: hard negatives without it cost 2.07 pp [1.16, 3.10] of Recall@10.
 5. **Cost.** On one CPU thread, at history length 200 and batch 1, median latency is 2.0 ms for hstu-notime and 3.1 ms for hstu-trel+trope; training throughput at length 100 drops from 312 to 198 sequences/s. The overhead comes mostly from the per-pair bias gather and the rotary maths. The box was shared (load average ~30 on 8 CPUs), so the ordering is more trustworthy than the absolute numbers ([`results/bench.json`](results/bench.json), latency figure).
 
@@ -71,6 +71,8 @@ Planned comparisons (Recall@10, percentage points; Holm over the family; full ta
 | neg:S512-H16-nopa vs neg:S512-H16 | -2.07 [-3.10, -1.16] | 0.0001 | 0.0012 |
 | neg:S512-H16 vs hstu-trel+trope | -3.87 [-4.75, -2.96] | 0.0001 | 0.0012 |
 
+p-values (sign-flip over users, then Holm) condition on the trained checkpoints and ignore seed variance; the CIs (hierarchical bootstrap over users x seeds) include it. Treat a comparison as significant only when Holm p < 0.05 and the CI excludes zero.
+
 #### Amazon'23 Industrial & Scientific, 10k-user subsample (21,949 items)
 
 | model | seeds | Recall@2 | Recall@10 | NDCG@10 | Incr@10 vs ensemble |
@@ -95,22 +97,24 @@ Planned comparisons (Recall@10, percentage points; Holm over the family; full ta
 | hstu-notime vs sasrec | -0.24 [-0.46, -0.01] | 0.0062 | 0.0248 |
 | hstu-trel+trope vs sasrec | -0.32 [-0.54, -0.10] | 0.0005 | 0.0025 |
 
+p-values (sign-flip over users, then Holm) condition on the trained checkpoints and ignore seed variance; the CIs (hierarchical bootstrap over users x seeds) include it. Treat a comparison as significant only when Holm p < 0.05 and the CI excludes zero.
+
 <!-- TABLES:END -->
 
-![forest plot of the planned paired comparisons (difference in Recall@10, pp, 95% CI); green or red = Holm p<0.05.](docs/figures/comparisons_forest.png)
-*Alt: forest plot of the planned paired comparisons (difference in Recall@10, pp, 95% CI); green or red = Holm p<0.05. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
+![Forest plot of the planned paired comparisons, one panel per dataset: difference in test Recall@10 (pp) with 95% CI over users x seeds and the Holm p-value; green or red only when Holm p<0.05 AND the CI excludes zero, hollow grey when the user-level test is significant but the CI spans zero (hstu-full vs hstu-trel+trope).](docs/figures/comparisons_forest.png)
+*Forest plot of the planned paired comparisons; coloured = Holm p<0.05 and CI excludes 0; hollow grey = they disagree. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
 ![test Recall@10 per model, split by the gap between the last history event and the test target (<1 min ... >30 d), with bootstrap CIs and bucket sizes.](docs/figures/recall_by_gap.png)
 *Alt: test Recall@10 per model, split by the gap between the last history event and the test target (<1 min ... >30 d), with bootstrap CIs and bucket sizes. Data: [`results/ml1m/recall_by_gap.json`](results/ml1m/recall_by_gap.json), [`results/amz_Industrial_and_Scientific_u10k/recall_by_gap.json`](results/amz_Industrial_and_Scientific_u10k/recall_by_gap.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
-![query-time ablation](docs/figures/query_time_ablation.png)
-*Alt: paired bars of test Recall@10 for each trained checkpoint evaluated with the protocol query time (target timestamp) and with the last history timestamp, with the difference and its 95% CI. Data: [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json), [`results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json`](results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json). Script: [`scripts/eval_query_time.py`](scripts/eval_query_time.py), [`scripts/make_figures.py`](scripts/make_figures.py).*
+![Paired bars of test Recall@10 for each trained configuration, evaluated with the protocol query time (target timestamp) and with the query time set to the last history timestamp (gap = 0 s), labelled with the difference in pp and its 95% CI; on ML-1M every time-aware model drops by about 1.4 to 3 pp, on Amazon nothing changes.](docs/figures/query_time_ablation.png)
+*Query-time ablation: paired bars of test Recall@10 for each trained checkpoint evaluated with the protocol query time (target timestamp) and with the last history timestamp, with the difference and its 95% CI. Data: [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json), [`results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json`](results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json). Script: [`scripts/eval_query_time.py`](scripts/eval_query_time.py), [`scripts/make_figures.py`](scripts/make_figures.py).*
 
 ![learned additive attention bias per log-time bucket (per layer and head) of hstu-trel seed 0; the bias is large for gaps of about 10 s to 1 min (rating sessions) on ML-1M.](docs/figures/learned_time_bias.png)
 *Alt: learned additive attention bias per log-time bucket (per layer and head) of hstu-trel seed 0; the bias is large for gaps of about 10 s to 1 min (rating sessions) on ML-1M. Data: [`results/ml1m/learned_time_bias.json`](results/ml1m/learned_time_bias.json), [`results/amz_Industrial_and_Scientific_u10k/learned_time_bias.json`](results/amz_Industrial_and_Scientific_u10k/learned_time_bias.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
-![Incr@2 and Incr@10 per model](docs/figures/incremental_recall.png)
-*Alt: Incr@2 and Incr@10 per model: share of test users whose target the model ranks in its top-K while the union of Pop, RecentPop and ItemKNN top-K misses it. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
+![Grouped bars of Incr@2 and Incr@10 per model, one panel per dataset: the share of test users whose target the model ranks in its top K while the union of the Pop, RecentPop and ItemKNN top K misses it; about 17 to 20% Incr@10 on ML-1M and below 1% on Amazon.](docs/figures/incremental_recall.png)
+*Incremental recall: Incr@2 and Incr@10 per model: share of test users whose target the model ranks in its top-K while the union of Pop, RecentPop and ItemKNN top-K misses it. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
 ![heatmap of test Recall@10 and NDCG@10 for sampled-softmax training of hstu-trel+trope over shared negatives S x hard negatives H (seed 0), with the full-softmax reference in the title.](docs/figures/negatives_heatmap.png)
 *Alt: heatmap of test Recall@10 and NDCG@10 for sampled-softmax training of hstu-trel+trope over shared negatives S x hard negatives H (seed 0), with the full-softmax reference in the title. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json) (configs neg:*). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
@@ -118,8 +122,11 @@ Planned comparisons (Recall@10, percentage points; Holm over the family; full ta
 ![validation NDCG@10 per epoch (mean over seeds) for the main configs; the timeline of training until early stopping.](docs/figures/training_curves.png)
 *Alt: validation NDCG@10 per epoch (mean over seeds) for the main configs; the timeline of training until early stopping. Data: [`results/ml1m/summary.json`](results/ml1m/summary.json), [`results/amz_Industrial_and_Scientific_u10k/summary.json`](results/amz_Industrial_and_Scientific_u10k/summary.json). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
 
+![Horizontal bars of epochs run for each of the 27 ML-1M runs, red when the run used all 40 epochs without early stopping (15 of 27, including every sampled-softmax HSTU run and hstu-full seeds 1 and 2), with a tick at the selected best epoch and, for capped runs, the validation NDCG@10 gain over the last 10 epochs.](docs/figures/epoch_cap.png)
+*Epoch cap: which ML-1M runs hit the 40-epoch cap. Data: [`results/ml1m/epoch_cap.json`](results/ml1m/epoch_cap.json) (from `results/ml1m/summary.json`). Script: [`scripts/audit.py`](scripts/audit.py).*
+
 ![events per week over time and inter-event gap histograms for both datasets, showing ML-1M's minute-scale rating bursts and Amazon's day-to-year gaps.](docs/figures/data_timeline.png)
-*Alt: events per week over time and inter-event gap histograms for both datasets, showing ML-1M's minute-scale rating bursts and Amazon's day-to-year gaps. Data: [`results/data_stats.json`](results/data_stats.json); script [`scripts/plot_data.py`](scripts/plot_data.py). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
+*Alt: events per week over time and inter-event gap histograms for both datasets, showing ML-1M's minute-scale rating bursts and Amazon's day-to-year gaps. Data: [`results/data_stats.json`](results/data_stats.json); Script: [`scripts/plot_data.py`](scripts/plot_data.py).*
 
 ![CPU inference latency vs history length for batch 1 and 256 (1 and 2 threads; grey = ItemKNN), and training-step throughput, on a shared box at load average ~30 on 8 CPUs.](docs/figures/latency_throughput.png)
 *Alt: CPU inference latency vs history length for batch 1 and 256 (1 and 2 threads; grey = ItemKNN), and training-step throughput, on a shared box at load average ~30 on 8 CPUs. Data: [`results/bench.json`](results/bench.json); script [`scripts/bench.py`](scripts/bench.py). Script: [`scripts/make_figures.py`](scripts/make_figures.py).*
@@ -204,12 +211,14 @@ export PYTHONPATH=.                                    # scripts default to PY=.
 
 # 1. data (downloads are sha256-checked; raw data is never committed)
 .venv/bin/python scripts/prepare_ml1m.py
-.venv/bin/python scripts/prepare_amazon.py --max-users 10000
+.venv/bin/python scripts/prepare_amazon.py --max-users 10000   # the 10k-user subsample used for training
+.venv/bin/python scripts/prepare_amazon.py                      # full 51k-user file (plot_data.py and the 51k baselines read it)
 .venv/bin/python scripts/plot_data.py                  # docs/figures/data_timeline.png
 
 # 2. baselines and ensemble (tuned on validation) + incremental-training flags
 .venv/bin/python scripts/eval_baselines.py
 .venv/bin/python scripts/eval_baselines.py --data data/processed/amz_Industrial_and_Scientific_u10k.npz --max-len 50
+.venv/bin/python scripts/eval_baselines.py --data data/processed/amz_Industrial_and_Scientific.npz --max-len 50   # 51k-user baselines
 .venv/bin/python scripts/incremental_flags.py
 
 # 3. the grid (tasr/configs.py SCHEDULE; resumable, lock-aware; logs/grid.log). Hours of CPU time.
@@ -222,6 +231,7 @@ scripts/finalize.sh            # or step by step:
 .venv/bin/python scripts/aggregate.py --ds ml1m && .venv/bin/python scripts/aggregate.py --ds amz_Industrial_and_Scientific_u10k
 .venv/bin/python scripts/eval_query_time.py && .venv/bin/python scripts/bench.py
 .venv/bin/python scripts/make_figures.py && .venv/bin/python scripts/readme_tables.py
+.venv/bin/python scripts/audit.py   # epoch-cap figure, post-hoc comparisons, unseen-target counts
 ```
 
 A single run: `.venv/bin/python -m tasr.train --name hstu-trel --loss full --arch hstu --pos rel --trel 1 --seed 0` (writes `runs/ml1m/hstu-trel/seed0/`).
@@ -229,11 +239,13 @@ A single run: `.venv/bin/python -m tasr.train --name hstu-trel --loss full --arc
 ## Caveats
 
 - **ML-1M timestamps are rating times, not consumption times.** 88.5% of consecutive gaps are under a minute. The time features mostly learn session structure, so the gain does not show that seasonality modelling works.
-- **Amazon is a 10k-user subsample** (CPU budget), and a review stands in for a purchase. All models stay close to popularity there. Full-catalog baselines on the 51k-user set are in [`results/amz_Industrial_and_Scientific/`](results/amz_Industrial_and_Scientific/baselines.json).
-- **Seeds.** There are 3 seeds for the core configs, 1 for the secondary ablations and 1 for the negatives heatmap. Single-seed rows have CIs over users only.
+- **Amazon is a 10k-user subsample** (CPU budget), and a review stands in for a purchase. All models stay close to popularity there. 1,562 of the 10,000 test targets (15.6%) never appear in any training sequence (ML-1M: 2 of 6,040; [`results/amz_Industrial_and_Scientific_u10k/unseen_targets.json`](results/amz_Industrial_and_Scientific_u10k/unseen_targets.json), from [`scripts/audit.py`](scripts/audit.py)). Their embeddings are untrained, Pop scores them 0 and ItemKNN has no neighbours for them, so achievable Recall is capped at about 84%. This is not a leak, but it is context for "nothing beats popularity by much". Full-catalog baselines on the 51k-user set are in [`results/amz_Industrial_and_Scientific/`](results/amz_Industrial_and_Scientific/baselines.json).
+- **Seeds.** There are 3 seeds for the core configs, 1 for the secondary ablations and 1 for the negatives heatmap. Single-seed rows have CIs over users only. The sign-flip p-values always treat the trained checkpoints as fixed (users are the unit) and so ignore seed variance; the hierarchical CIs include it. A comparison counts as significant only when both agree.
 - **Loss.** The architecture × time grid uses full softmax, because SASRec barely trains under uniform sampled softmax in this setup ([`docs/pilots.md`](docs/pilots.md)). Shopify's sampled-softmax regime is studied only on HSTU.
-- **Max epochs.** Some SASRec runs reached the 40-epoch cap while still improving slightly (`best epochs` column in `results/*/summary.md`), so SASRec may be slightly under-trained compared with HSTU.
+- **Max epochs.** Every model trained for at most 40 epochs. 15 of 27 ML-1M runs used all 40 without early stopping while validation was still improving, including all 7 sampled-softmax HSTU runs and hstu-full seeds 1 and 2 (also sasrec seed 0, sasrec+trel, hstu-notime / hstu-trel / hstu-trel+trope seed 1, and hstu-tt:incr1). See the epoch-cap figure and [`results/ml1m/epoch_cap.json`](results/ml1m/epoch_cap.json). The results are therefore fixed-budget results, and a higher cap could change small gaps; Amazon runs all early-stopped (best epochs 5 to 9).
 - **Latency was measured on a shared box** at load average ~30 on 8 cores. Absolute numbers are pessimistic; the relative ordering is the useful part. The encoder computes all L positions; a serving path would cache keys and values.
+- **Retraining is not bit-exact.** Aggregation, figures and tables regenerate byte-identically from `runs/`, and every checkpoint re-evaluates to its `test_ranks.npy` exactly. Retraining the same seed matches only to floating-point noise: two identical 2-epoch Amazon runs differed in 321 of 10,000 ranks by at most 2, with identical Recall@10 (`torch.use_deterministic_algorithms` is not enabled).
+- **No LICENSE file yet.** That is fine while the repo is private; add one before it goes public. No raw MovieLens or Amazon data or ID maps are committed, only per-user ranks and aggregates.
 - This is a microbench of public ideas, not a reproduction of Shopify's system or numbers.
 
 ## References

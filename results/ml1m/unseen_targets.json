@@ -1,0 +1,6 @@
+{
+ "test_targets": 6040,
+ "unseen_in_train": 2,
+ "share": 0.00033112582781456954,
+ "recall_ceiling": 0.9996688741721854
+}
