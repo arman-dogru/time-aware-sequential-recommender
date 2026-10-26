@@ -5,3 +5,7 @@ data/processed/
 runs/
 *.pt
 .venv/
+logs/
+runs_pilot/
+runs/
+.venv

@@ -1,0 +1,223 @@
+{
+ "cap": 40,
+ "n_runs": 27,
+ "n_hit_cap": 15,
+ "runs": [
+  {
+   "config": "sasrec",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 40,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.002470945541818259
+  },
+  {
+   "config": "sasrec",
+   "seed_index": 1,
+   "epochs_run": 26,
+   "best_epoch": 22,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "sasrec",
+   "seed_index": 2,
+   "epochs_run": 38,
+   "best_epoch": 34,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "sasrec+trel",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 40,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.00693285718774031
+  },
+  {
+   "config": "hstu-notime",
+   "seed_index": 0,
+   "epochs_run": 38,
+   "best_epoch": 34,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-notime",
+   "seed_index": 1,
+   "epochs_run": 40,
+   "best_epoch": 36,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.005479137082261942
+  },
+  {
+   "config": "hstu-notime",
+   "seed_index": 2,
+   "epochs_run": 37,
+   "best_epoch": 33,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-trel",
+   "seed_index": 0,
+   "epochs_run": 33,
+   "best_epoch": 29,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-trel",
+   "seed_index": 1,
+   "epochs_run": 40,
+   "best_epoch": 39,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.0031670155423652313
+  },
+  {
+   "config": "hstu-trel",
+   "seed_index": 2,
+   "epochs_run": 36,
+   "best_epoch": 32,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-trope",
+   "seed_index": 0,
+   "epochs_run": 38,
+   "best_epoch": 34,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-trel+trope",
+   "seed_index": 0,
+   "epochs_run": 38,
+   "best_epoch": 34,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-trel+trope",
+   "seed_index": 1,
+   "epochs_run": 40,
+   "best_epoch": 36,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.002709838384537727
+  },
+  {
+   "config": "hstu-trel+trope",
+   "seed_index": 2,
+   "epochs_run": 35,
+   "best_epoch": 31,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-full",
+   "seed_index": 0,
+   "epochs_run": 26,
+   "best_epoch": 22,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-full",
+   "seed_index": 1,
+   "epochs_run": 40,
+   "best_epoch": 39,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.005272371453318853
+  },
+  {
+   "config": "hstu-full",
+   "seed_index": 2,
+   "epochs_run": 40,
+   "best_epoch": 40,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.004110831310360247
+  },
+  {
+   "config": "hstu-timeonly",
+   "seed_index": 0,
+   "epochs_run": 38,
+   "best_epoch": 34,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  },
+  {
+   "config": "hstu-tt:incr1",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 37,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.003362549630144235
+  },
+  {
+   "config": "neg:S128-H0",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 38,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.008902314473807849
+  },
+  {
+   "config": "neg:S128-H16",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 40,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.009931767996135349
+  },
+  {
+   "config": "neg:S512-H0",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 39,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.012803953754214281
+  },
+  {
+   "config": "neg:S512-H16",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 36,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.011616978078742957
+  },
+  {
+   "config": "neg:S2048-H0",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 38,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.007299366764019627
+  },
+  {
+   "config": "neg:S2048-H16",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 39,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.009461507664232816
+  },
+  {
+   "config": "neg:S512-H16-nopa",
+   "seed_index": 0,
+   "epochs_run": 40,
+   "best_epoch": 38,
+   "hit_cap": true,
+   "val_ndcg10_gain_last10": 0.013646633065070135
+  },
+  {
+   "config": "neg:sasrec-S512-H16",
+   "seed_index": 0,
+   "epochs_run": 39,
+   "best_epoch": 35,
+   "hit_cap": false,
+   "val_ndcg10_gain_last10": null
+  }
+ ]
+}

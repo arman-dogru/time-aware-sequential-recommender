@@ -1,0 +1,28 @@
+{
+ "ml1m": {
+  "users": 6040,
+  "items": 3706,
+  "events": 1000209,
+  "first": "2000-04-25T23:05:32",
+  "last": "2003-02-28T17:49:50",
+  "gap_same_second": 0.5321489605891956,
+  "gap_lt_1min": 0.8851010240713602,
+  "gap_gt_1day": 0.014762077674922472,
+  "test_gap_lt_1min": 0.7410596026490066,
+  "test_gap_gt_1day": 0.07847682119205299,
+  "median_len": 96.0
+ },
+ "amz_Industrial_and_Scientific": {
+  "users": 50985,
+  "items": 25848,
+  "events": 412947,
+  "first": "2001-07-04T12:28:27",
+  "last": "2023-08-25T20:20:01",
+  "gap_same_second": 2.762720948607865e-05,
+  "gap_lt_1min": 0.060119570562655746,
+  "gap_gt_1day": 0.6917190202286427,
+  "test_gap_lt_1min": 0.03846229283122487,
+  "test_gap_gt_1day": 0.7641070903206826,
+  "median_len": 6.0
+ }
+}

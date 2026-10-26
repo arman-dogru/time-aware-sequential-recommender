@@ -1,0 +1,174 @@
+{
+ "killed": 28,
+ "total": 28,
+ "mutants": [
+  {
+   "file": "tasr/models.py",
+   "mutant": "causal = torch.ones(L, L, dtype=torch.bool, device=x.device)",
+   "breaks": "full attention (sees the future)",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "causal = torch.tril(torch.ones(L, L, dtype=torch.bool, device=x.device), 1)",
+   "breaks": "attends one step ahead",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "tb = time_bucket(q[:, None, :] - t[:, :, None])",
+   "breaks": "transposed time-bias index",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "tb = time_bucket(t[:, :, None] - t[:, None, :])",
+   "breaks": "time bias ignores the query time",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "h = h + self._cal(self.cal_q, q.roll(-1, 1))",
+   "breaks": "calendar of the next position's query time",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "h = h + self._cal(self.cal_q, t)",
+   "breaks": "query calendar fed event times",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "mask = causal[None, None].float().expand(B, 1, L, L)",
+   "breaks": "padding keys not masked",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "rel = (i[None, :] - i[:, None]).clamp(0, self.L - 1)",
+   "breaks": "reversed relative-position index",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "bad = bad",
+   "breaks": "positive-aware masking removed",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "bad_neg = bad_negatives(neg_ids, yv)",
+   "breaks": "training loop drops positive-aware masking",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "if a.epochs < 0:",
+   "breaks": "--epochs 0 accepted",
+   "killed": true
+  },
+  {
+   "file": "tasr/stats.py",
+   "mutant": "null >= obs - 1e-12",
+   "breaks": "one-sided sign-flip",
+   "killed": true
+  },
+  {
+   "file": "tasr/stats.py",
+   "mutant": "flips)",
+   "breaks": "sign-flip without the +1 correction",
+   "killed": true
+  },
+  {
+   "file": "tasr/stats.py",
+   "mutant": "running = min(1.0, (k - rank) * p[i])",
+   "breaks": "Holm not monotone",
+   "killed": true
+  },
+  {
+   "file": "tasr/stats.py",
+   "mutant": "running = max(running, min(1.0, (k - rank - 1) * p[i]))",
+   "breaks": "Holm multiplier off by one",
+   "killed": true
+  },
+  {
+   "file": "tasr/stats.py",
+   "mutant": "return per_seed.mean(0)",
+   "breaks": "bootstrap ignores seed variance",
+   "killed": true
+  },
+  {
+   "file": "tasr/baselines.py",
+   "mutant": "keep = (j != 0)",
+   "breaks": "ItemKNN keeps self-similarity",
+   "killed": true
+  },
+  {
+   "file": "tasr/baselines.py",
+   "mutant": "k = np.clip((np.asarray(qts) - self.t0) // (86400 * self.res) + 1, 0, self.n_b)",
+   "breaks": "RecentPop includes the query bucket",
+   "killed": true
+  },
+  {
+   "file": "tasr/baselines.py",
+   "mutant": "lo = np.clip(k - self.w - 1, 0, None)",
+   "breaks": "RecentPop window one bucket too long",
+   "killed": true
+  },
+  {
+   "file": "tasr/data.py",
+   "mutant": "return np.arange(start, n_train - 1)",
+   "breaks": "incremental-flag window off by one",
+   "killed": true
+  },
+  {
+   "file": "tasr/data.py",
+   "mutant": "start = max(0, n_train - data.max_len)",
+   "breaks": "incremental-flag window start",
+   "killed": true
+  },
+  {
+   "file": "tasr/data.py",
+   "mutant": "return it[:-1], t[:-1]",
+   "breaks": "training sees the validation event",
+   "killed": true
+  },
+  {
+   "file": "tasr/data.py",
+   "mutant": "q = np.append(h_t[1:], h_t[-1])",
+   "breaks": "eval query time = last history",
+   "killed": true
+  },
+  {
+   "file": "tasr/data.py",
+   "mutant": "q[:, :] = t[:, :]",
+   "breaks": "ablation changes every query time",
+   "killed": true
+  },
+  {
+   "file": "tasr/metrics.py",
+   "mutant": "return ((s > tgt).sum(1) + 1)",
+   "breaks": "optimistic ties",
+   "killed": true
+  },
+  {
+   "file": "tasr/metrics.py",
+   "mutant": "return ((s > tgt).sum(1) + (s == tgt).sum(1) - 1)",
+   "breaks": "0-based rank",
+   "killed": true
+  },
+  {
+   "file": "tasr/metrics.py",
+   "mutant": "out = {f\"R@{k}\": float(np.mean(r < k)) for k in KS}",
+   "breaks": "Recall cutoff r < k",
+   "killed": true
+  },
+  {
+   "file": "tasr/metrics.py",
+   "mutant": "pass",
+   "breaks": "history not excluded",
+   "killed": true
+  }
+ ]
+}
