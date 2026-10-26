@@ -10,25 +10,28 @@ Results carry 95% CIs over users × seeds, with Holm-corrected paired tests.
 
 ## Key findings
 
-> The numbers live in the tables below; they are rendered from `summary.json` by [`scripts/readme_tables.py`](scripts/readme_tables.py).
+> Final results: 3 seeds for the core configs, 1 seed for the secondary ablations and the negatives sweep. Every number below comes from the tables in this README, which [`scripts/readme_tables.py`](scripts/readme_tables.py) renders from `results/*/summary.json` (written by [`scripts/aggregate.py`](scripts/aggregate.py)), or from the query-time ablation JSON. Each finding links the figure that shows it.
 
-0. **What "query time" means here.** The time of the request is the test-time query time, which is the **timestamp of the held-out target event**. Every time feature is computed relative to it. The target's item is never visible, but its timestamp is.
-   - On ML-1M, this reveals that 74% of test targets come less than a minute after the last history event, inside the same rating session.
-   - A model that sees "a few seconds have passed" can lean on the session structure.
-   - The eval-only ablation in [`results/*/query_time_ablation.json`](results/ml1m/query_time_ablation.json) ([`scripts/eval_query_time.py`](scripts/eval_query_time.py)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp instead. In that setting the model cannot know how long ago the user acted. See the query-time figure below.
-   - **Interim result (seed-0 checkpoints, ML-1M):** hstu-trel falls from 32.86 to 30.03 Recall@10 (−2.83 pp [−3.48, −2.15]). That is back to the level of hstu-notime (30.15). sasrec+trel falls by 2.07 pp [−2.78, −1.34]. **The ML-1M time gain therefore comes from knowing the request time relative to the last event, not from the history's timestamps.**
-   - On Amazon, the change is ≤ 0.1 pp.
-   - These numbers are refreshed by `scripts/finalize.sh` over all seeds.
-1. **Time in attention helps on ML-1M, but by modelling rating sessions.**
-   - On ML-1M, the relative time bias (`trel`) adds a few points of Recall@10 on both backbones, HSTU and SASRec.
-   - The recall-by-gap figure shows that the gain is concentrated where the target follows the last event within a minute. That is the ML-1M rating-burst artefact, not long-horizon seasonality.
-2. **On the sparse Amazon subsample, nothing beats popularity by much, and the time features do not help.**
-   - Sequences are short (median 6) and the catalog is large (22k items) for 81k events.
-   - The models overfit within about 6 epochs.
-   - The Shopify regime, with billions of events, is far from this.
-3. **Incremental recall.** The neural models recover a large share of the test positives that the 3-member ensemble union misses (Incr@10). On ML-1M, time features raise Incr@10 along with Recall@10.
-4. **Negative sampling is a real lever.** With sampled softmax, more shared negatives help, and the full softmax is the ceiling. Hard negatives from ItemKNN and positive-aware masking are compared on the heatmap and in the planned comparisons.
-5. **Cost.** Time features add latency, mostly from the per-pair bias gather and the rotary maths. See the CPU microbenchmark.
+0. **What "query time" means here, and why it matters.** The query time at test is the **timestamp of the held-out target event**, and every time feature is computed relative to it. The target's item is never visible, but its timestamp is.
+   - On ML-1M, 74% of test targets (4,495 of 6,040 users) come less than a minute after the last history event, inside the same rating session ([`results/ml1m/recall_by_gap.json`](results/ml1m/recall_by_gap.json), bucket sizes in the recall-by-gap figure).
+   - The eval-only ablation ([`scripts/eval_query_time.py`](scripts/eval_query_time.py), data in [`results/ml1m/query_time_ablation.json`](results/ml1m/query_time_ablation.json)) re-scores every trained checkpoint with the query time set to the *last history event's* timestamp, so the model can no longer tell how long ago the user acted.
+   - **Final result (3 seeds, ML-1M):** hstu-trel falls from 32.99 to 30.21 Recall@10 (−2.78 pp [−3.45, −2.07]), hstu-trel+trope from 33.41 to 30.54 (−2.87 pp [−3.55, −2.18]) and hstu-full from 32.67 to 30.36 (−2.30 pp [−3.25, −1.46]). That is back to hstu-notime (30.33). sasrec+trel (1 seed) falls by 2.07 pp [−2.75, −1.37], to 30.71. Models without time features are unchanged, as they must be.
+   - **So most of the ML-1M relative-time gain comes from the query timestamp revealing sub-minute gaps to the target, not from the timestamps inside the history.** The trained-in gain (hstu-trel vs hstu-notime, +2.67 pp) is about the size of the drop.
+   - On Amazon the drop is at most 0.03 pp and no CI excludes zero ([`results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json`](results/amz_Industrial_and_Scientific_u10k/query_time_ablation.json)). See the query-time figure below.
+1. **Time in attention helps on ML-1M, by modelling rating sessions.** These comparisons are paired over users, Holm-corrected, and shown in the forest plot.
+   - The relative time bias (`trel`) adds +2.67 pp Recall@10 [+1.84, +3.51] on HSTU (3 seeds) and +3.49 pp [+2.62, +4.44] on SASRec (sasrec+trel has 1 seed). Time RoPE alone adds +1.48 pp [+0.62, +2.30], and trel+trope adds +3.08 pp [+2.19, +3.96].
+   - Adding calendar embeddings on top (hstu-full) does not help: −0.74 pp [−2.03, +0.41]. The bootstrap CI over users and seeds crosses zero, though the user-level sign-flip test is significant (Holm p = 0.016), so it is at best neutral.
+   - The recall-by-gap figure shows the gain sits in the < 1 min bucket (hstu-trel+trope 41.1% vs hstu-notime 37.4%). That is the ML-1M rating-burst artefact, not long-horizon seasonality.
+   - Best ML-1M model: hstu-trel+trope at 33.41 [32.26, 34.55] Recall@10, +4.12 pp [+3.15, +5.13] over SASRec. Without time, HSTU beats SASRec by +1.04 pp [+0.22, +1.89].
+2. **On the sparse Amazon subsample, nothing beats popularity by much, and time features do not help.**
+   - SASRec is best at 2.09 [1.84, 2.36] Recall@10, against Pop at 1.77 and the RRF ensemble at 1.97. HSTU is slightly below SASRec (hstu-notime −0.24 pp [−0.46, −0.01]), and trel or trel+trope change Recall@10 by less than 0.1 pp with CIs spanning zero.
+   - Sequences are short (median 6) and the catalog is large (22k items) for 81k events, and the models peak within 5 to 9 epochs (training-curves figure). The Shopify regime, with billions of events, is far from this.
+3. **Incremental recall.** On ML-1M the neural models reach 17 to 20% Incr@10, meaning they rank the target in their top 10 for that share of users whose target the union of Pop, RecentPop and ItemKNN misses (union Recall@10 is 20.33%). Time features raise Incr@10 with Recall@10 (hstu-trel+trope vs hstu-notime +2.46 pp [+1.82, +3.11]). Boosting-style training on ensemble misses (`hstu-tt:incr1`, 1 seed) does not raise Incr@10 (+0.18 pp [−0.45, +0.84]) and costs 1.39 pp [0.59, 2.19] of Recall@10. On Amazon, Incr@10 stays below 1%. See the incremental-recall figure.
+4. **Negative sampling is a real lever (ML-1M, HSTU trel+trope, 1 seed).** See the negatives heatmap.
+   - More shared negatives help a lot: Recall@10 is 24.85 at S = 128, 30.20 at S = 512 and 32.76 at S = 2048, against 33.41 for the full softmax.
+   - 16 hard ItemKNN negatives add nothing at S = 512 (−0.66 pp [−1.57, +0.25]); at S = 2048 the gap to full softmax is within noise (33.10 vs 33.41).
+   - Positive-aware masking matters: hard negatives without it cost 2.07 pp [1.16, 3.10] of Recall@10.
+5. **Cost.** On one CPU thread, at history length 200 and batch 1, median latency is 2.0 ms for hstu-notime and 3.1 ms for hstu-trel+trope; training throughput at length 100 drops from 312 to 198 sequences/s. The overhead comes mostly from the per-pair bias gather and the rotary maths. The box was shared (load average ~30 on 8 CPUs), so the ordering is more trustworthy than the absolute numbers ([`results/bench.json`](results/bench.json), latency figure).
 
 ## Results (test, leave-one-out, full-catalog ranking; %, 95% hierarchical-bootstrap CI)
 
