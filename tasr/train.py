@@ -38,7 +38,10 @@ def get_args(argv=None):
     p.add_argument("--threads", type=int, default=2)
     p.add_argument("--out", default=None, help="default runs/<dataset>")
     p.add_argument("--data", default="data/processed/ml1m.npz")
-    return p.parse_args(argv)
+    a = p.parse_args(argv)
+    if a.epochs < 1:
+        p.error("--epochs must be >= 1 (the model is selected on validation after at least one epoch)")
+    return a
 
 
 @torch.no_grad()
@@ -61,8 +64,7 @@ def main(argv=None):
     torch.set_num_threads(a.threads)
     ds = os.path.basename(a.data).replace(".npz", "")
     out = os.path.join(a.out or os.path.join("runs", ds), a.name, f"seed{a.seed}")
-    os.makedirs(out, exist_ok=True)
-    data = SeqData(a.data, a.max_len)
+    data = SeqData(a.data, a.max_len)  # load (and fail) before creating the run dir, so a bad path leaves nothing behind
     model = SeqRec(data.n_items, a.arch, a.d, a.layers, a.heads, a.max_len, a.dropout,
                    a.pos, bool(a.trel), bool(a.trope), bool(a.tabs))
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.0)
@@ -73,6 +75,7 @@ def main(argv=None):
     if a.incr_beta > 0:
         incr = dict(np.load(a.data.replace(".npz", "_incr_flags.npz")))
         assert int(incr["max_len"]) == a.max_len  # from scripts/incremental_flags.py
+    os.makedirs(out, exist_ok=True)
     train_hist = [data.train_seq(u)[0] for u in range(data.n_users)]
     rng = np.random.default_rng(a.seed)
     best, best_state, bad, log = -1.0, None, 0, []
@@ -130,6 +133,7 @@ def main(argv=None):
             bad += 1
             if bad >= a.patience:
                 break
+    assert best_state is not None  # unreachable: get_args enforces --epochs >= 1
     model.load_state_dict(best_state)
     tr = evaluate(model, data, "test")
     vr = evaluate(model, data, "valid")
