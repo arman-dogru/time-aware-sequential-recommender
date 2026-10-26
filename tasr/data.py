@@ -60,6 +60,14 @@ class SeqData:
         return m
 
 
+def last_history_query(t, q):
+    """Query-time ablation (scripts/eval_query_time.py): set the query time of the LAST position to the last
+    history event's timestamp (gap = 0 s). Every other position's query time is unchanged."""
+    q = q.clone()
+    q[:, -1] = t[:, -1]
+    return q
+
+
 def window_positions(data, u):
     """indices (into the user's full sequence) of the targets used by train_batch for user u."""
     n_train = data.off[u + 1] - data.off[u] - 2

@@ -46,3 +46,10 @@ def test_recentpop_weekly_buckets_strictly_past():
     # day 5 is in week 0 with every event -> nothing strictly past yet
     assert counts(rp, T0 + 5 * DAY + 18 * 3600)[1:].tolist() == [0, 0, 0]
     assert counts(rp, T0 + 7 * DAY)[1:].tolist() == [2, 1, 1]
+
+
+def test_recentpop_window_is_exactly_w_buckets():
+    # query day 5, window_days=3 -> buckets 2, 3, 4. Events on days 1 (just outside), 2 and 4 (inside), 5 (query day).
+    d = Fake({0: ([1, 2, 3, 1], [T0 + 1 * DAY, T0 + 2 * DAY, T0 + 4 * DAY, T0 + 5 * DAY])}, n_items=3)
+    rp = RecentPop(d, window_days=3, bucket_days=1)
+    assert counts(rp, T0 + 5 * DAY + 3600)[1:].tolist() == [0, 1, 1]

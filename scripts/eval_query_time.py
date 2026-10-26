@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tasr.data import SeqData
+from tasr.data import SeqData, last_history_query
 from tasr.metrics import ranks_from_scores, summarize
 from tasr.models import SeqRec
 from tasr.stats import bootstrap_weights, hboot, signflip_p
@@ -28,7 +28,7 @@ def ranks(model, data, mode, bs=512):
     for s in range(0, data.n_users, bs):
         x, t, q, tg, hist = data.eval_batch(range(s, min(s + bs, data.n_users)), "test")
         if mode == "last_history":
-            q = q.clone(); q[:, -1] = t[:, -1]
+            q = last_history_query(t, q)
         h = model.encode(x, t, q)[:, -1]
         out.append(ranks_from_scores(h @ E.T, tg, data.history_mask(hist)))
     return np.concatenate(out)
