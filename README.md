@@ -207,6 +207,8 @@ git clone https://github.com/arman-dogru/time-aware-sequential-recommender && cd
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-lock.txt        # or: -r requirements.txt (direct pins), -r requirements-dev.txt (+pytest)
 .venv/bin/python -m pytest -q tests                    # unit + mutation tests (seconds)
+.venv/bin/python scripts/mutation_check.py           # 22 single-line mutants of tasr/ (causality, time-bias index, stats,
+                                                       # baselines, splits, metrics); each must make pytest fail -> results/mutation_check.json
 export PYTHONPATH=.                                    # scripts default to PY=.venv/bin/python (override with PY=...)
 
 # 1. data (downloads are sha256-checked; raw data is never committed)
