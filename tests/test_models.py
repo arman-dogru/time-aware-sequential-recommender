@@ -164,3 +164,28 @@ def test_train_rejects_nonpositive_epochs(epochs):
     with pytest.raises(SystemExit):
         get_args(["--name", "x", "--epochs", epochs])
     assert get_args(["--name", "x", "--epochs", "1"]).epochs == 1
+
+
+@pytest.mark.parametrize("pos_aware", [1, 0])
+def test_training_loop_wires_positive_aware_masking(toy_npz, tmp_path, monkeypatch, pos_aware):
+    """One-epoch sampled-softmax training on the toy data: with --pos-aware 1 the loop must hand bad_negatives
+    the user's training-history mask (every training target is a known positive of its own row), and with
+    --pos-aware 0 it must not."""
+    import tasr.train as tr
+    calls, orig = [], tr.bad_negatives
+
+    def spy(neg_ids, yv, hm=None, row=None):
+        calls.append((yv.clone(), None if hm is None else hm.clone(), None if row is None else row.clone()))
+        return orig(neg_ids, yv, hm, row)
+    monkeypatch.setattr(tr, "bad_negatives", spy)
+    tr.main(["--name", "t", "--data", toy_npz, "--out", str(tmp_path), "--epochs", "1", "--loss", "sampled",
+             "--n-shared", "4", "--n-hard", "2", "--hard-pool", "3", "--pos-aware", str(pos_aware), "--d", "8",
+             "--max-len", "4", "--threads", "1"])
+    assert calls
+    for yv, hm, row in calls:
+        if pos_aware:
+            assert hm is not None and row is not None and len(row) == len(yv)
+            assert hm[row, yv].all()  # each target is in its own user's positive mask
+            assert not hm[row].all()  # and the mask is not trivially everything
+        else:
+            assert hm is None and row is None

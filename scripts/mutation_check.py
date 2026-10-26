@@ -22,6 +22,8 @@ M = [  # (file, original, mutant, what it breaks)
     ("tasr/models.py", "rel = (i[:, None] - i[None, :]).clamp(0, self.L - 1)", "rel = (i[None, :] - i[:, None]).clamp(0, self.L - 1)",
      "reversed relative-position index"),
     ("tasr/train.py", "bad |= hm[row[:, None], neg_ids]", "bad = bad", "positive-aware masking removed"),
+    ("tasr/train.py", "bad_neg = bad_negatives(neg_ids, yv, hm, row)", "bad_neg = bad_negatives(neg_ids, yv)",
+     "training loop drops positive-aware masking"),
     ("tasr/train.py", "if a.epochs < 1:", "if a.epochs < 0:", "--epochs 0 accepted"),
     ("tasr/stats.py", "np.abs(null) >= abs(obs) - 1e-12", "null >= obs - 1e-12", "one-sided sign-flip"),
     ("tasr/stats.py", "(flips + 1))", "flips)", "sign-flip without the +1 correction"),

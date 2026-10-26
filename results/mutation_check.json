@@ -1,6 +1,6 @@
 {
- "killed": 27,
- "total": 27,
+ "killed": 28,
+ "total": 28,
  "mutants": [
   {
    "file": "tasr/models.py",
@@ -54,6 +54,12 @@
    "file": "tasr/train.py",
    "mutant": "bad = bad",
    "breaks": "positive-aware masking removed",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "bad_neg = bad_negatives(neg_ids, yv)",
+   "breaks": "training loop drops positive-aware masking",
    "killed": true
   },
   {
