@@ -44,6 +44,16 @@ def get_args(argv=None):
     return a
 
 
+def bad_negatives(neg_ids, yv, hm=None, row=None):
+    """(N, K) bool: negatives to drop. Always the target itself and id 0 (padding / missing neighbour); with
+    positive-aware masking (hm (B, n_items+1) = each user's known positives, row (N,) = user row of each target)
+    also every known positive of that target's user."""
+    bad = (neg_ids == yv[:, None]) | (neg_ids == 0)
+    if hm is not None:
+        bad |= hm[row[:, None], neg_ids]
+    return bad
+
+
 @torch.no_grad()
 def evaluate(model, data, split, bs=512):
     model.eval()
@@ -105,11 +115,11 @@ def main(argv=None):
                     hard = neighbors[xv][torch.arange(len(yv))[:, None], pick]
                     neg_logit = torch.cat([neg_logit, torch.einsum("nd,nkd->nk", hv, E[hard])], 1)
                     neg_ids = torch.cat([neg_ids, hard], 1)
-                bad_neg = (neg_ids == yv[:, None]) | (neg_ids == 0)  # 0 = padding / missing neighbour
+                hm = row = None
                 if a.pos_aware:  # never treat a known positive of this user as a negative
                     hm = data.history_mask([train_hist[u] for u in users])
                     row = torch.arange(len(users))[:, None].expand_as(y)[valid]
-                    bad_neg |= hm[row[:, None], neg_ids]
+                bad_neg = bad_negatives(neg_ids, yv, hm, row)
                 neg_logit = neg_logit.masked_fill(bad_neg, float("-inf"))
                 logits = torch.cat([pos_logit, neg_logit], 1) / a.tau
                 loss_vec = -torch.log_softmax(logits, 1)[:, 0]

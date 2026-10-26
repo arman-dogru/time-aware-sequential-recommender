@@ -14,7 +14,7 @@ from tasr.stats import signflip_p
 L, N_ITEMS = 8, 20
 # arch x pos x (trel, trope, tabs)
 CONFIGS = [(a, p, *tf) for a, p, tf in itertools.product(
-    ["sasrec", "hstu"], ["abs", "rel", "none"], [(0, 0, 0), (1, 0, 0), (0, 1, 0), (1, 1, 0), (1, 1, 1)])]
+    ["sasrec", "hstu"], ["abs", "rel", "none"], [(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 1, 1)])]
 
 
 def make(arch, pos, trel, trope, tabs, seed=0, layers=2):
@@ -119,3 +119,48 @@ def test_window_positions_match_train_batch_targets(toy_npz, max_len):
         y = y[0][y[0] > 0].numpy()
         it, _ = d.seq(u)
         assert np.array_equal(it[window_positions(d, u)], y)
+
+
+@pytest.mark.parametrize("cfg", [c for c in CONFIGS if c[1] != "abs"], ids=lambda c: "-".join(map(str, c)))
+def test_left_padding_is_invisible(cfg):
+    """Padding keys are masked: the same history encoded with and without left padding gives the same
+    outputs at the real positions (absolute positions excluded: they shift with the padding by design)."""
+    m = make(*cfg)
+    x, t, q = batch(4)
+    x[:, :3] = 0
+    with torch.no_grad():
+        h_pad = m.encode(x, t, q)[:, 3:]
+        h = m.encode(x[:, 3:], t[:, 3:], q[:, 3:])
+    assert torch.allclose(h_pad, h, atol=1e-5)
+
+
+@pytest.mark.parametrize("arch", ["sasrec", "hstu"])
+def test_relative_position_bias_sees_order(arch):
+    """One layer, no time features: without positions the last output is invariant to permuting the earlier
+    items; the relative-position bias must break that (a reversed/clamped index makes it constant)."""
+    x, t, q = batch(5, B=1)
+    perm = torch.cat([torch.randperm(L - 1, generator=torch.Generator().manual_seed(1)), torch.tensor([L - 1])])
+    outs = {}
+    for pos in ("none", "rel"):
+        m = make(arch, pos, 0, 0, 0, layers=1)
+        with torch.no_grad():
+            outs[pos] = (m.encode(x, t, q)[:, -1], m.encode(x[:, perm], t, q)[:, -1])
+    assert torch.allclose(*outs["none"], atol=1e-5)
+    assert not torch.allclose(*outs["rel"], atol=1e-4)
+
+
+def test_bad_negatives_positive_aware():
+    from tasr.train import bad_negatives
+    neg = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]])
+    yv, row = torch.tensor([2, 4]), torch.tensor([0, 1])
+    hm = torch.zeros(2, 5, dtype=torch.bool); hm[0, 3] = True; hm[1, 1] = True
+    assert bad_negatives(neg, yv).tolist() == [[True, False, True, False], [False, False, False, True]]
+    assert bad_negatives(neg, yv, hm, row).tolist() == [[True, False, True, True], [True, False, False, True]]
+
+
+@pytest.mark.parametrize("epochs", ["0", "-1"])
+def test_train_rejects_nonpositive_epochs(epochs):
+    from tasr.train import get_args
+    with pytest.raises(SystemExit):
+        get_args(["--name", "x", "--epochs", epochs])
+    assert get_args(["--name", "x", "--epochs", "1"]).epochs == 1

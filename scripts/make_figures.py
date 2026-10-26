@@ -43,6 +43,7 @@ for ax, (ds, s) in zip(axes[0], S.items()):
     y = np.arange(len(comp))
     lo_all, hi_all = min(100 * c["lo"] for c in comp), max(100 * c["hi"] for c in comp)
     pad = 0.02 * (hi_all - lo_all)
+    label_end = [hi_all + 4 * pad]
     for yi, c in zip(y, comp):
         p_sig = c["p_holm"] < 0.05
         ci_sig = c["lo"] > 0 or c["hi"] < 0  # hierarchical CI (users x seeds) excludes zero
@@ -51,8 +52,10 @@ for ax, (ds, s) in zip(axes[0], S.items()):
         ax.errorbar(100 * c["diff"], yi, xerr=[[100 * (c["diff"] - c["lo"])], [100 * (c["hi"] - c["diff"])]],
                     fmt="o", color=col, mfc=col if (sig or not p_sig) else "white", capsize=3)
         flag = "  (Holm p<0.05 but CI spans 0)" if p_sig and not ci_sig else ""
-        ax.text(100 * c["hi"] + pad, yi, f" p_Holm={c['p_holm']:.3f}{flag}", va="center", fontsize=7)
-    ax.axvline(0, color="k", lw=0.8); ax.set_xlim(min(lo_all, 0) - 4 * pad, hi_all + 22 * pad)
+        lab = f" p_Holm={c['p_holm']:.3f}{flag}"
+        ax.text(100 * c["hi"] + pad, yi, lab, va="center", fontsize=7)
+        label_end.append(100 * c["hi"] + pad * (2 + 0.55 * len(lab)))  # ~0.55 pad per 7-pt character
+    ax.axvline(0, color="k", lw=0.8); ax.set_xlim(min(lo_all, 0) - 4 * pad, max(label_end))  # right edge = end of the longest p-value label
     ax.set_yticks(y, [f"{c['a']}  vs  {c['b']}" for c in comp]); ax.invert_yaxis()
     ax.set_xlabel("difference in test Recall@10 (pp), 95% CI over users x seeds\ncolored = Holm p<0.05 AND CI excludes 0; hollow grey = Holm p<0.05 but CI spans 0"); ax.set_title(DS[ds])
 fig.tight_layout(); fig.savefig(f"{FIG}/comparisons_forest.png", dpi=110); plt.close(fig)

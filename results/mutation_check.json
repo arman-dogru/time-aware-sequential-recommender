@@ -1,6 +1,6 @@
 {
- "killed": 22,
- "total": 22,
+ "killed": 27,
+ "total": 27,
  "mutants": [
   {
    "file": "tasr/models.py",
@@ -30,6 +30,36 @@
    "file": "tasr/models.py",
    "mutant": "h = h + self._cal(self.cal_q, q.roll(-1, 1))",
    "breaks": "calendar of the next position's query time",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "h = h + self._cal(self.cal_q, t)",
+   "breaks": "query calendar fed event times",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "mask = causal[None, None].float().expand(B, 1, L, L)",
+   "breaks": "padding keys not masked",
+   "killed": true
+  },
+  {
+   "file": "tasr/models.py",
+   "mutant": "rel = (i[None, :] - i[:, None]).clamp(0, self.L - 1)",
+   "breaks": "reversed relative-position index",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "bad = bad",
+   "breaks": "positive-aware masking removed",
+   "killed": true
+  },
+  {
+   "file": "tasr/train.py",
+   "mutant": "if a.epochs < 0:",
+   "breaks": "--epochs 0 accepted",
    "killed": true
   },
   {

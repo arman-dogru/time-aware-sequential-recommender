@@ -25,6 +25,7 @@ $PY scripts/aggregate.py --ds amz_Industrial_and_Scientific_u10k > logs/agg_amz.
 $PY scripts/eval_query_time.py > logs/query_time.out 2>&1 || fail "query-time ablation"
 $PY scripts/make_figures.py > logs/figs.out 2>&1 || fail "make_figures"
 $PY scripts/readme_tables.py > /dev/null 2>&1 || fail "readme_tables"
+$PY scripts/audit.py > logs/audit.out 2>&1 || fail "audit"
 [[ "$(git rev-parse --abbrev-ref HEAD)" == "$BRANCH" ]] || fail "not on $BRANCH"
 git stash push -q -- results docs README.md || fail "stash"
 env -u GITHUB_TOKEN git pull -q --ff-only origin "$BRANCH" || { git stash pop -q; fail "remote $BRANCH is not a fast-forward of local; resolve by hand"; }
